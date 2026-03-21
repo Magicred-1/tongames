@@ -1,26 +1,118 @@
 @import "tailwindcss";
 
+@theme {
+  --color-primary: #b5c4ff;
+  --color-primary-container: #638aff;
+  --color-on-primary: #00297a;
+  --color-on-primary-container: #00236b;
+  
+  --color-secondary: #7dffa2;
+  --color-secondary-container: #05e777;
+  --color-on-secondary: #003918;
+  --color-on-secondary-container: #00622e;
+  
+  --color-tertiary: #ffb59e;
+  --color-tertiary-container: #ff571a;
+  --color-on-tertiary: #5e1700;
+  
+  --color-surface: #050f39;
+  --color-surface-bright: #2d3661;
+  --color-surface-dim: #050f39;
+  --color-surface-variant: #29325c;
+  --color-on-surface: #dde1ff;
+  --color-on-surface-variant: #c3c5d7;
+  
+  --color-background: #050f39;
+  --color-on-background: #dde1ff;
+  
+  --color-outline: #8d90a0;
+  --color-outline-variant: #434655;
+  
+  --color-error: #ffb4ab;
+  --color-error-container: #93000a;
+  --color-on-error: #690005;
+  --color-on-error-container: #ffdad6;
+
+  --color-surface-container-lowest: #010934;
+  --color-surface-container-low: #0e1841;
+  --color-surface-container: #131c45;
+  --color-surface-container-high: #1e2750;
+  --color-surface-container-highest: #29325c;
+
+  --color-telegram-blue: #24A1DE;
+
+  --font-headline: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Space Grotesk", sans-serif;
+  --font-robotomono: "Roboto Mono", monospace;
+
+  --radius-default: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 9999px;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #050f39;
+  --foreground: #dde1ff;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+}
+
+.glass-panel {
+  background: rgba(19, 28, 69, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(141, 144, 160, 0.1);
+}
+
+.glow-primary {
+  box-shadow: 0 0 20px rgba(99, 138, 255, 0.3);
+}
+
+.neon-border-glow {
+  box-shadow: inset 0 0 15px rgba(125, 255, 162, 0.1);
+}
+
+.bg-mesh {
+  background-color: #050f39;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(99, 138, 255, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(125, 255, 162, 0.1) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(5, 15, 57, 1) 0px, transparent 80%);
+}
+
+.victory-glow {
+  text-shadow: 0 0 20px rgba(125, 255, 162, 0.4), 0 0 40px rgba(125, 255, 162, 0.2);
+}
+
+.corner-accent {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: #b5c4ff;
+  opacity: 0.6;
+}
+.corner-tl { top: -2px; left: -2px; border-top-width: 2px; border-left-width: 2px; }
+.corner-tr { top: -2px; right: -2px; border-top-width: 2px; border-right-width: 2px; }
+.corner-bl { bottom: -2px; left: -2px; border-bottom-width: 2px; border-left-width: 2px; }
+.corner-br { bottom: -2px; right: -2px; border-bottom-width: 2px; border-right-width: 2px; }
+
+.segmented-progress span {
+  height: 8px;
+  flex: 1;
+  background-color: #29325c;
+  margin-right: 2px;
+}
+.segmented-progress span.active {
+  background-color: #7dffa2;
+  box-shadow: 0 0 8px rgba(125, 255, 162, 0.5);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }

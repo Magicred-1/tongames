@@ -1,21 +1,7 @@
-"use client";
-
 import React from 'react';
 import Image from 'next/image';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 
 export default function LoginPage() {
-      const { setShowAuthFlow, handleLogOut, user } = useDynamicContext();
-    
-      const handleConnect = () => {
-        if (user) {
-          handleLogOut();
-        } else {
-          setShowAuthFlow(true);
-        }
-      };
-    
-
   return (
     <main className="relative z-10 w-full max-w-7xl mx-auto px-8 flex flex-col lg:flex-row items-center justify-center gap-12 xl:gap-24 min-h-screen py-12">
       {/* Hero Backdrop Logic */}
@@ -103,9 +89,7 @@ export default function LoginPage() {
               
               {/* Telegram Integration */}
               <div className="space-y-4">
-                <button className="w-full group relative flex items-center justify-center gap-4 bg-telegram-blue hover:bg-[#208aba] text-white font-headline font-bold py-5 rounded-xl transition-all active:scale-[0.98] shadow-[0_0_40px_rgba(36,161,222,0.25)] overflow-hidden"
-                    onClick={handleConnect}
-                >
+                <button className="w-full group relative flex items-center justify-center gap-4 bg-telegram-blue hover:bg-[#208aba] text-white font-headline font-bold py-5 rounded-xl transition-all active:scale-[0.98] shadow-[0_0_40px_rgba(36,161,222,0.25)] overflow-hidden">
                   <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M11.944 0C5.346 0 0 5.346 0 11.944c0 6.598 5.346 11.944 11.944 11.944 6.598 0 11.944-5.346 11.944-11.944C23.888 5.346 18.542 0 11.944 0zm5.206 8.358l-1.84 8.672c-.14.62-.507.774-1.026.484l-2.804-2.068-1.352 1.3c-.15.15-.274.274-.563.274l.2-2.844 5.176-4.675c.225-.2-.049-.311-.349-.111l-6.398 4.027-2.757-.862c-.6-.188-.612-.6.126-.887l10.774-4.15c.5-.188.937.112.713.842z"></path>

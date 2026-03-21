@@ -8,7 +8,7 @@ import { GameEngine }      from "./gameEngine.js";
 import { BlockchainAdapter } from "./blockchainAdapter.js";
 import { SyncEngine }      from "./syncEngine.js";
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4020;
 
 // ── HTTP + WS server ──────────────────────────────────────────────────────────
 const httpServer = createServer((req, res) => {
