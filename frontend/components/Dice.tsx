@@ -10,21 +10,19 @@ export interface DiceProps {
 }
 
 export function Dice({ isRolling, value = 0, className = '', diceMax = 10 }: DiceProps) {
-  const [displayValue, setDisplayValue] = useState(value);
+  const [rollingValue, setRollingValue] = useState(value);
+  const displayValue = isRolling ? rollingValue : value;
 
   useEffect(() => {
-    if (!isRolling) {
-      setDisplayValue(value);
-      return;
-    }
+    if (!isRolling) return;
 
     // Rapid cycling through values while rolling
     const interval = setInterval(() => {
-      setDisplayValue(Math.ceil(Math.random() * diceMax));
+      setRollingValue(Math.ceil(Math.random() * diceMax));
     }, 50);
 
     return () => clearInterval(interval);
-  }, [isRolling, value, diceMax]);
+  }, [isRolling, diceMax]);
 
   return (
     <div

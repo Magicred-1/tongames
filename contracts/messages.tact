@@ -67,8 +67,22 @@ message(0x31) ReleaseFunds {
 message(0x32) RefundAll {}
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Spectator → EscrowContract (betting)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Spectator bets on a player winning.  Amount is context().value minus gas.
+message(0x40) PlaceBet {
+    onPlayer: Address;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Internal structs
 // ─────────────────────────────────────────────────────────────────────────────
+
+struct BetRecord {
+    onPlayer: Address;
+    amount:   Int as coins;
+}
 
 struct PlayerData {
     classType:    Int as uint8;   // 0 Knight / 1 Mage / 2 Rogue

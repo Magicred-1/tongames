@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useDynamicContext, useTelegramLogin } from '@dynamic-labs/sdk-react-core';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 type TelegramWebApp = { initData?: string };
 type TelegramAwareWindow = Window & { Telegram?: { WebApp?: TelegramWebApp } };
@@ -36,6 +36,15 @@ export default function Header() {
   const blockchainCred = user?.verifiedCredentials.find(
     (c) => c.format === 'blockchain'
   );
+
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyAddress = useCallback(() => {
+    if (!blockchainCred?.address) return;
+    navigator.clipboard.writeText(blockchainCred.address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [blockchainCred]);
 
   const avatarUrl = telegramCred?.oauthAccountPhotos?.[0] ?? null;
 
@@ -82,6 +91,16 @@ export default function Header() {
           <span className="material-symbols-outlined text-outline cursor-pointer hover:text-white transition-all active:scale-95">settings</span>
           <span className="material-symbols-outlined text-outline cursor-pointer hover:text-white transition-all active:scale-95">help</span>
         </div>
+        {user && blockchainCred?.address && (
+          <button
+            onClick={handleCopyAddress}
+            title="Copy address"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-headline font-bold tracking-wider text-outline border border-outline/20 hover:text-white hover:border-white/30 active:scale-95 transition-all"
+          >
+            <span className="material-symbols-outlined text-[16px]">{copied ? 'check' : 'content_copy'}</span>
+            <span>{copied ? 'Copied!' : 'Copy Address'}</span>
+          </button>
+        )}
         <button className="bg-primary-container text-on-primary-container px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-headline font-bold tracking-wider shadow-[0_0_20px_rgba(99,138,255,0.4)] hover:shadow-[0_0_30px_rgba(99,138,255,0.6)] active:scale-95 transition-all"
           onClick={handleConnect}
           title={user ? 'Log out' : 'Connect wallet'}

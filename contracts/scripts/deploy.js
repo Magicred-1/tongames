@@ -186,7 +186,7 @@ async function deploy() {
   const ownerMnemonicRaw = getRequiredEnv("OWNER_MNEMONIC");
   const tonApiKey        = getRequiredEnv("TON_API_KEY");
 
-  const stakeAmountRaw = process.env.STAKE_AMOUNT || toNano("0.1").toString();
+  const stakeAmountRaw = process.env.STAKE_AMOUNT || toNano("0.01").toString();
   let stakeAmount;
   try { stakeAmount = BigInt(stakeAmountRaw); }
   catch { throw new Error("Invalid STAKE_AMOUNT. Expected nanoTON integer, e.g. 1000000000"); }

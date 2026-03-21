@@ -6,6 +6,8 @@ import Header from '@/components/Header';
 import { useSearchParams } from 'next/navigation';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { useGameSocket } from '@/lib/gameSocket';
+import ClassSelectionModal from '@/components/ClassSelectionModal';
+import { DebugCountdownOverlay } from '@/components/DebugCountdownOverlay';
 
 type TelegramWebApp = { initData?: string };
 
@@ -78,8 +80,15 @@ function LobbyPageContent() {
     const blockchainCred = user.verifiedCredentials.find(
       (c) => c.format === 'blockchain'
     );
+    const playerAddress =
+      blockchainCred?.address
+      ?? (telegramCred?.oauthAccountId ? String(telegramCred.oauthAccountId) : null)
+      ?? (telegramCred?.oauthUsername   ? `tg_${telegramCred.oauthUsername}`  : null)
+      ?? user.userId
+      ?? null;
+
     return {
-      playerAddress: blockchainCred?.address ?? telegramCred?.oauthAccountId ?? user.userId,
+      playerAddress,
       displayName: telegramCred?.oauthUsername ?? undefined,
       avatarUrl: telegramCred?.oauthAccountPhotos?.[0] ?? undefined,
     };
@@ -119,6 +128,8 @@ function LobbyPageContent() {
 
   return (
     <div className="bg-mesh font-body text-on-surface min-h-screen overflow-hidden selection:bg-primary-container selection:text-white">
+      <DebugCountdownOverlay />
+      <ClassSelectionModal />
       <Header />
 
       {/* Main Lobby Canvas (TV View) */}

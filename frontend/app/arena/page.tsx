@@ -1,5 +1,4 @@
 import Header from '@/components/Header';
-import Image from 'next/image';
 import { ArenaClient } from './client';
 
 export default function ArenaPage() {
@@ -9,9 +8,9 @@ export default function ArenaPage() {
     <div className="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container min-h-screen">
       {/* TopAppBar */}
       <Header />
-
+      
       {/* Client Component for Interactivity */}
-      <ArenaClient baseAppUrl={baseAppUrl} lobbyConnectApiUrl={lobbyConnectApiUrl} />
+      <ArenaClient lobbyConnectApiUrl={lobbyConnectApiUrl} />
 
       {/* BottomNavBar */}
       <footer className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 sm:px-4 pb-4 sm:pb-6 pt-2 bg-surface-container-lowest/90 backdrop-blur-xl border-t border-outline-variant/15 shadow-[0_-8px_32px_rgba(1,9,52,0.5)] md:hidden">

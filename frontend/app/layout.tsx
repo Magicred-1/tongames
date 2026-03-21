@@ -4,6 +4,7 @@ import "./globals.css";
 import DynamicTonWrapper                    from "@/components/DynamicTonWrapper/Wrapper";
 import { GameSocketProvider }               from "@/lib/gameSocket";
 import { TonTransactionHandlerLoader }      from "@/components/TonTransactionHandlerLoader";
+import { TelegramAutoLoginLoader }          from "@/components/TelegramAutoLoginLoader";
 
 const inter = Inter({
   variable: "--font-body",
@@ -45,6 +46,7 @@ export default function RootLayout({
         <GameSocketProvider>
           <DynamicTonWrapper>
             <TonTransactionHandlerLoader />
+            <TelegramAutoLoginLoader />
             {children}
           </DynamicTonWrapper>
         </GameSocketProvider>

@@ -28,6 +28,7 @@ export type Player = {
   displayName?: string;
   avatarUrl?: string;
   classType?: string;
+  hp?: number;
   committed?: boolean;
   revealed?: boolean;
   alive: boolean;
@@ -39,24 +40,45 @@ export type DiceRoll = {
   diceMax: number;
 };
 
+export type RoundResult = {
+  attacker: string;
+  attackerClass: number;
+  target: string;
+  targetClass: number;
+  roll: number;
+  damage: number;
+  isCrit: boolean;
+  targetHpBefore: number;
+  targetHpAfter: number;
+  eliminated: boolean;
+};
+
 export type GameState = {
   syncStatus: SyncStatus;
   wsUrl: string | null;
   roomId: string | null;
+  escrowAddress: string | null;
+  myAddress: string | null;
+  myTarget: string | null;
   players: Player[];
   round: number;
   phase: GamePhase;
   winner: string | null;
-  results: unknown;
+  results: RoundResult[] | null;
   pendingTx: PendingTx | null;
   error: string | null;
   diceRolls: Map<string, DiceRoll>;
   rollingPlayers: Set<string>;
+  debugCountdown: number | null;
+  debugCountdownTotal: number | null;
 };
 
 type GameAction =
   | { type: 'WS_STATUS'; status: SyncStatus }
+  | { type: 'LOBBY_READY'; roomId: string; escrowAddress?: string }
   | { type: 'ROOM_CREATED'; roomId: string }
+  | { type: 'SET_MY_ADDRESS'; address: string }
+  | { type: 'SET_MY_TARGET'; target: string | null }
   | { type: 'LOBBY_STATE'; players: Player[] }
   | { type: 'LOBBY_PLAYER_JOINED'; address: string; displayName?: string; avatarUrl?: string }
   | { type: 'LOBBY_PLAYER_LEFT'; address: string }
@@ -68,14 +90,16 @@ type GameAction =
   | { type: 'PLAYER_REVEALED'; address: string }
   | { type: 'DICE_ROLLING'; address: string }
   | { type: 'DICE_RESULT'; address: string; roll: number; diceMax: number }
-  | { type: 'ROUND_RESULTS'; results: unknown }
-  | { type: 'NEXT_ROUND'; round: number; alivePlayers: string[] }
+  | { type: 'ROUND_RESULTS'; results: RoundResult[] }
+  | { type: 'NEXT_ROUND'; round: number; alivePlayers: Array<{ address: string; hp: number }> }
   | { type: 'GAME_OVER'; winner: string }
   | { type: 'TIMEOUT_ELIMINATE'; eliminated: string[] }
   | { type: 'PLAYER_DISCONNECTED'; address: string }
   | { type: 'TX_REQUEST'; pendingTx: PendingTx }
   | { type: 'TX_CONFIRMED' }
-  | { type: 'SERVER_ERROR'; message: string };
+  | { type: 'SERVER_ERROR'; message: string }
+  | { type: 'DEBUG_COUNTDOWN'; seconds: number; total: number }
+  | { type: 'DEBUG_COUNTDOWN_CANCELLED' };
 
 // ─── URL resolution ───────────────────────────────────────────────────────────
 
@@ -103,6 +127,9 @@ const initialState: GameState = {
   syncStatus: 'connecting',
   wsUrl: null,
   roomId: null,
+  escrowAddress: null,
+  myAddress: null,
+  myTarget: null,
   players: [],
   round: 0,
   phase: null,
@@ -112,6 +139,8 @@ const initialState: GameState = {
   error: null,
   diceRolls: new Map(),
   rollingPlayers: new Set(),
+  debugCountdown: null,
+  debugCountdownTotal: null,
 };
 
 function reducer(state: GameState, action: GameAction): GameState {
@@ -119,22 +148,28 @@ function reducer(state: GameState, action: GameAction): GameState {
     case 'WS_STATUS':
       return { ...state, syncStatus: action.status };
     case 'LOBBY_STATE':
-      return { ...state, players: action.players };
+      return { ...state, players: action.players.map(p => ({ hp: 100, ...p, alive: p.alive ?? true })) };
     case 'LOBBY_PLAYER_JOINED':
       if (state.players.some((p) => p.address === action.address)) return state;
       return {
         ...state,
-        players: [...state.players, { address: action.address, displayName: action.displayName, avatarUrl: action.avatarUrl, alive: true }],
+        players: [...state.players, { address: action.address, displayName: action.displayName, avatarUrl: action.avatarUrl, alive: true, hp: 100 }],
       };
     case 'LOBBY_PLAYER_LEFT':
       return { ...state, players: state.players.filter((p) => p.address !== action.address) };
+    case 'LOBBY_READY':
+      return { ...state, roomId: action.roomId, escrowAddress: action.escrowAddress ?? state.escrowAddress };
+    case 'SET_MY_ADDRESS':
+      return { ...state, myAddress: action.address };
+    case 'SET_MY_TARGET':
+      return { ...state, myTarget: action.target };
     case 'ROOM_CREATED':
       return { ...state, roomId: action.roomId };
     case 'PLAYER_JOINED':
       if (state.players.some((p) => p.address === action.address)) return state;
       return {
         ...state,
-        players: [...state.players, { address: action.address, classType: action.classType, alive: true }],
+        players: [...state.players, { address: action.address, classType: action.classType, alive: true, hp: 100 }],
       };
     case 'GAME_STARTED':
       return { ...state, round: 1 };
@@ -143,6 +178,7 @@ function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         phase: 'COMMIT',
         round: action.round,
+        myTarget: null,
         players: state.players.map((p) => ({ ...p, committed: false, revealed: false })),
       };
     case 'REVEAL_PHASE':
@@ -186,19 +222,31 @@ function reducer(state: GameState, action: GameAction): GameState {
         ),
       };
     }
-    case 'ROUND_RESULTS':
-      return { ...state, results: action.results, phase: 'RESOLVE' };
-    case 'NEXT_ROUND':
+    case 'ROUND_RESULTS': {
+      const hpUpdates = new Map(action.results.map(r => [r.target, { hp: r.targetHpAfter, alive: !r.eliminated }]));
+      return {
+        ...state,
+        results: action.results,
+        phase: 'RESOLVE',
+        players: state.players.map(p => {
+          const u = hpUpdates.get(p.address);
+          return u ? { ...p, hp: u.hp, alive: u.alive } : p;
+        }),
+      };
+    }
+    case 'NEXT_ROUND': {
+      const aliveMap = new Map(action.alivePlayers.map(ap => [ap.address, ap.hp]));
       return {
         ...state,
         round: action.round,
         phase: null,
         results: null,
-        players: state.players.map((p) => ({
-          ...p,
-          alive: action.alivePlayers.includes(p.address),
-        })),
+        players: state.players.map((p) => {
+          const hp = aliveMap.get(p.address);
+          return { ...p, alive: hp !== undefined, hp: hp ?? 0 };
+        }),
       };
+    }
     case 'GAME_OVER':
       return { ...state, winner: action.winner, phase: null };
     case 'TIMEOUT_ELIMINATE':
@@ -220,6 +268,10 @@ function reducer(state: GameState, action: GameAction): GameState {
       return { ...state, pendingTx: null };
     case 'SERVER_ERROR':
       return { ...state, error: action.message };
+    case 'DEBUG_COUNTDOWN':
+      return { ...state, debugCountdown: action.seconds, debugCountdownTotal: action.total };
+    case 'DEBUG_COUNTDOWN_CANCELLED':
+      return { ...state, debugCountdown: null, debugCountdownTotal: null };
     default:
       return state;
   }
@@ -245,6 +297,12 @@ export function GameSocketProvider({ children }: Readonly<{ children: React.Reac
     const ws = wsRef.current;
     if (ws?.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type, payload }));
+      if (type === 'LOBBY_JOIN' && payload.playerAddress) {
+        dispatch({ type: 'SET_MY_ADDRESS', address: payload.playerAddress as string });
+      }
+      if (type === 'SELECT_TARGET' && payload.target) {
+        dispatch({ type: 'SET_MY_TARGET', target: payload.target as string });
+      }
     }
   }, []);
 
@@ -286,6 +344,9 @@ export function GameSocketProvider({ children }: Readonly<{ children: React.Reac
         case 'LOBBY_PLAYER_LEFT':
           dispatch({ type: 'LOBBY_PLAYER_LEFT', address: payload.address as string });
           break;
+        case 'LOBBY_READY':
+          dispatch({ type: 'LOBBY_READY', roomId: payload.roomId as string, escrowAddress: payload.escrowAddress as string | undefined });
+          break;
         case 'ROOM_CREATED':
           dispatch({ type: 'ROOM_CREATED', roomId: payload.roomId as string });
           break;
@@ -293,7 +354,6 @@ export function GameSocketProvider({ children }: Readonly<{ children: React.Reac
           dispatch({ type: 'PLAYER_JOINED', address: payload.address as string, classType: payload.classType as string });
           break;
         case 'ROOM_FULL':
-          router.push('/selection');
           break;
         case 'GAME_STARTED':
           dispatch({ type: 'GAME_STARTED' });
@@ -323,10 +383,10 @@ export function GameSocketProvider({ children }: Readonly<{ children: React.Reac
           });
           break;
         case 'ROUND_RESULTS':
-          dispatch({ type: 'ROUND_RESULTS', results: payload.results });
+          dispatch({ type: 'ROUND_RESULTS', results: payload.results as RoundResult[] });
           break;
         case 'NEXT_ROUND':
-          dispatch({ type: 'NEXT_ROUND', round: payload.round as number, alivePlayers: payload.alivePlayers as string[] });
+          dispatch({ type: 'NEXT_ROUND', round: payload.round as number, alivePlayers: payload.alivePlayers as Array<{ address: string; hp: number }> });
           break;
         case 'GAME_OVER':
           dispatch({ type: 'GAME_OVER', winner: payload.winner as string });
@@ -354,6 +414,12 @@ export function GameSocketProvider({ children }: Readonly<{ children: React.Reac
           break;
         case 'ERROR':
           dispatch({ type: 'SERVER_ERROR', message: payload.message as string });
+          break;
+        case 'DEBUG_COUNTDOWN':
+          dispatch({ type: 'DEBUG_COUNTDOWN', seconds: payload.seconds as number, total: payload.total as number });
+          break;
+        case 'DEBUG_COUNTDOWN_CANCELLED':
+          dispatch({ type: 'DEBUG_COUNTDOWN_CANCELLED' });
           break;
       }
     };

@@ -13,7 +13,7 @@
 import { useEffect, useRef } from "react";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { isTonWallet }       from "@dynamic-labs/ton";
-import type { CHAIN }        from "@dynamic-labs/ton";
+import type { CHAIN, TonWalletConnector, SendTransactionRequest } from "@dynamic-labs/ton";
 import { useGameSocket }     from "@/lib/gameSocket";
 
 // Derive TON chain id from env var: "testnet" → -3, anything else → -239 (mainnet)
@@ -41,7 +41,17 @@ export function useTonTransaction() {
 
     const fire = async () => {
       try {
-        const txHash = await primaryWallet.sendTransaction({
+        // Access the connector via the public getter and cast to the abstract base
+        // which declares sendTransaction. The docs show primaryWallet.sendTransaction()
+        // but that method is absent from TonWallet's type definition in v4.69.0.
+        const connector = primaryWallet.connector as unknown as TonWalletConnector & {
+          setActiveAccountAddress?: (address: string) => void;
+        };
+        // DynamicWaasTonConnector (WaaS wallets) requires activeAccountAddress before
+        // sendTransaction; it is not populated during connect(), so we seed it here.
+        // TonConnectConnector (Tonkeeper etc.) does not have this method — skip it.
+        connector.setActiveAccountAddress?.(primaryWallet.address);
+        const request: SendTransactionRequest = {
           validUntil: Math.floor(Date.now() / 1000) + 120, // 2 min window
           network: TON_CHAIN,
           messages: [
@@ -51,7 +61,8 @@ export function useTonTransaction() {
               payload: pendingTx.boc,   // base64 BoC built by the server
             },
           ],
-        });
+        };
+        const txHash = await connector.sendTransaction(request);
 
         send("TX_CONFIRMED", {
           operation: pendingTx.operation,

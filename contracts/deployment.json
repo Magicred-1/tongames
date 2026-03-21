@@ -2,9 +2,9 @@
   "network": "testnet",
   "ownerAddress": "UQBc3bogyzi1ZwPZFO3wyaCgYOEq8pZNqQ6OIr9cNYSNLz95",
   "walletVersion": "auto-detected",
-  "gameContract": "EQCYFdO-7ls1zUPtk8xcJYS4kjIUOXFb379DYe2f84fhtntn",
-  "escrowContract": "EQBPOJFSXljBOc0AxhBIo0FFHBsXIYIm0HaakKsAP1fwYQ83",
-  "stakeAmount": "1000000000",
+  "gameContract": "EQCJRyGAv8p9z2Cq_0G54U1fq3bc3UZnlsBUtZOGRDgfMN_I",
+  "escrowContract": "EQBVcvwGfb31t86hMA_zDqmpJymybADjCmo0cfTfnonL2pO-",
+  "stakeAmount": "100000000",
   "maxPlayers": 4,
-  "deployedAt": "2026-03-21T15:40:02.408Z"
+  "deployedAt": "2026-03-21T22:17:24.483Z"
 }

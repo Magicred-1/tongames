@@ -278,7 +278,7 @@ contract GameContract with Deployable {
 
         send(SendParameters{
             to:    self.escrow,
-            value: ton("0.05"),       // gas for escrow execution
+            value: ton("0.15"),       // gas for escrow execution + up to 20 bet payouts
             mode:  SendIgnoreErrors,
             body:  ReleaseFunds{
                 winner:   self.winner!!,
@@ -381,8 +381,9 @@ contract GameContract with Deployable {
             }
             self.state = STATE_PAYOUT;
         } else if (self.aliveCount == 0) {
-            // Draw – last attacker (slot 0 survivor) wins; refund all.
-            self.state = STATE_PAYOUT;
+            // Draw – pick slot 0 as tiebreaker to avoid deadlock in payout.
+            self.winner = self.addrBySlot.get(0);
+            self.state  = STATE_PAYOUT;
         } else {
             // Game continues – start next commit phase
             self._beginCommitPhase();

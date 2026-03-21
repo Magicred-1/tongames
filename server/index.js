@@ -4,11 +4,19 @@
 
 import { WebSocketServer } from "ws";
 import { createServer }    from "http";
+import { readFileSync }    from "node:fs";
+import { fileURLToPath }   from "node:url";
+import { dirname, join }   from "node:path";
 import { GameEngine }      from "./gameEngine.js";
 import { BlockchainAdapter } from "./blockchainAdapter.js";
 import { SyncEngine }      from "./syncEngine.js";
 import QRCode from "qrcode";
 import dotenv from "dotenv";
+
+const __dirname  = dirname(fileURLToPath(import.meta.url));
+const deployment = JSON.parse(
+  readFileSync(join(__dirname, "../contracts/deployment.json"), "utf-8")
+);
 
 dotenv.config();
 
@@ -94,6 +102,16 @@ const rooms = new Map();
 // ── Lobby presence:  address → { address, displayName, avatarUrl } ────────────
 const lobbyPlayers = new Map();
 
+// ── Pending room waiting for class selection ──────────────────────────────────
+let pendingRoomId = null;
+
+// ── Debug mode ────────────────────────────────────────────────────────────────
+// On by default outside production. Disable with DEBUG_MODE=0 or NODE_ENV=production.
+const DEBUG_MODE          = process.env.NODE_ENV !== 'production' && process.env.DEBUG_MODE !== '0';
+const DEBUG_COUNTDOWN_SEC = Number.parseInt(process.env.DEBUG_COUNTDOWN_SEC ?? '10', 10);
+let   debugTimer          = null;
+let   debugSecondsLeft    = 0;
+
 // ─────────────────────────────────────────────────────────────────────────────
 wss.on("connection", (ws, req) => {
   const clientIp = req.socket.remoteAddress;
@@ -110,7 +128,7 @@ wss.on("connection", (ws, req) => {
     }
 
     const { type, payload } = msg;
-    console.log(`[WS] Message received: type=${type}, playerAddr=${ws._playerAddr}`);
+    console.log(`[WS] type=${type} from ${ws._playerAddr ?? '(new)'}`);
 
     try {
       switch (type) {
@@ -149,6 +167,14 @@ wss.on("connection", (ws, req) => {
         type: "LOBBY_PLAYER_LEFT",
         payload: { address: ws._playerAddr, playerCount: lobbyPlayers.size }
       });
+      // Cancel debug countdown if the lobby is now empty
+      if (DEBUG_MODE && lobbyPlayers.size === 0 && debugTimer !== null) {
+        clearInterval(debugTimer);
+        debugTimer = null;
+        debugSecondsLeft = 0;
+        broadcastAll({ type: "DEBUG_COUNTDOWN_CANCELLED", payload: {} });
+        console.log("[DEBUG] Countdown cancelled — lobby empty");
+      }
     }
 
     // Notify room if player disconnects mid-game
@@ -168,6 +194,10 @@ wss.on("connection", (ws, req) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function handleLobbyJoin(ws, { playerAddress, displayName, avatarUrl }) {
+  if (!playerAddress) {
+    console.warn('[Lobby] LOBBY_JOIN missing playerAddress — rejected');
+    return sendError(ws, 'playerAddress is required');
+  }
   ws._playerAddr = playerAddress;
   lobbyPlayers.set(playerAddress, { address: playerAddress, displayName, avatarUrl });
 
@@ -184,12 +214,66 @@ function handleLobbyJoin(ws, { playerAddress, displayName, avatarUrl }) {
   });
 
   console.log(`[Lobby] ${displayName ?? playerAddress} joined (${lobbyPlayers.size} present)`);
+
+  // If a room is already pending, redirect this late joiner straight to selection
+  if (pendingRoomId) {
+    const pendingRoom = rooms.get(pendingRoomId);
+    send(ws, { type: "LOBBY_READY", payload: { roomId: pendingRoomId, escrowAddress: pendingRoom?.escrowAddress } });
+    return;
+  }
+
+  if (DEBUG_MODE) {
+    // Debug: start countdown on the very first player; re-send current tick to late joiners
+    if (debugTimer !== null) {
+      send(ws, { type: "DEBUG_COUNTDOWN", payload: { seconds: debugSecondsLeft, total: DEBUG_COUNTDOWN_SEC } });
+    } else if (lobbyPlayers.size >= 1) {
+      startDebugCountdown();
+    }
+  } else if (lobbyPlayers.size >= 2) {
+    // Normal: auto-create room once 2+ players are present
+    createAndBroadcastRoom();
+  }
+}
+
+function startDebugCountdown() {
+  debugSecondsLeft = DEBUG_COUNTDOWN_SEC;
+  broadcastAll({ type: "DEBUG_COUNTDOWN", payload: { seconds: debugSecondsLeft, total: DEBUG_COUNTDOWN_SEC } });
+  console.log(`[DEBUG] Countdown started — ${DEBUG_COUNTDOWN_SEC}s`);
+
+  debugTimer = setInterval(async () => {
+    debugSecondsLeft--;
+    broadcastAll({ type: "DEBUG_COUNTDOWN", payload: { seconds: debugSecondsLeft, total: DEBUG_COUNTDOWN_SEC } });
+
+    if (debugSecondsLeft <= 0) {
+      clearInterval(debugTimer);
+      debugTimer = null;
+      if (lobbyPlayers.size > 0) {
+        createAndBroadcastRoom();
+      }
+    }
+  }, 1000);
+}
+
+function createAndBroadcastRoom() {
+  const roomId     = generateRoomId();
+  pendingRoomId    = roomId;
+  const maxPlayers = lobbyPlayers.size;
+  const engine     = new GameEngine({ roomId, maxPlayers, stakeAmount: deployment.stakeAmount });
+  const blockchain = BlockchainAdapter.create({
+    gameContractAddr: deployment.gameContract,
+    escrowAddr:       deployment.escrowContract,
+    ownerMnemonic:    process.env.OWNER_MNEMONIC,
+  });
+  const sync = new SyncEngine(roomId);
+  rooms.set(roomId, { engine, blockchain, sync, contractAddress: deployment.gameContract, escrowAddress: deployment.escrowContract, clients: new Map() });
+  broadcastAll({ type: "LOBBY_READY", payload: { roomId, escrowAddress: deployment.escrowContract } });
+  console.log(`[Lobby] Room ${roomId} created — contract=${deployment.gameContract} players=${maxPlayers}${DEBUG_MODE ? ' [DEBUG]' : ''}`);
 }
 
 async function handleCreateRoom(ws, { ownerAddress, stakeAmount, maxPlayers, contractAddress, escrowAddress }) {
   const roomId = generateRoomId();
 
-  const blockchain = new BlockchainAdapter({
+  const blockchain = BlockchainAdapter.create({
     gameContractAddr: contractAddress,
     escrowAddr:       escrowAddress,
     ownerMnemonic:    process.env.OWNER_MNEMONIC
@@ -244,20 +328,23 @@ async function handleJoinRoom(ws, { roomId, playerAddress, classType }) {
   });
 
   if (room.engine.isFull()) {
-    broadcastToRoom(roomId, { type: "ROOM_FULL", payload: {} });
+    await startGame(roomId);
   }
 }
 
-async function handleStartGame(ws, { roomId }) {
+async function startGame(roomId) {
   const room = rooms.get(roomId);
-  if (!room) return sendError(ws, "Room not found");
-
+  if (!room) return;
+  pendingRoomId = null;
   room.engine.startGame();
   broadcastToRoom(roomId, { type: "GAME_STARTED", payload: { round: 1 } });
   room.sync.emit("GAME_STARTED", {});
-
-  // Kick off first commit phase
   await beginCommitPhase(roomId);
+}
+
+async function handleStartGame(ws, { roomId }) {
+  if (!rooms.has(roomId)) return sendError(ws, "Room not found");
+  await startGame(roomId);
 }
 
 async function handleSelectTarget(ws, { target }) {
@@ -464,6 +551,13 @@ async function handleGameOver(roomId, winner) {
   }
 
   rooms.delete(roomId);
+  pendingRoomId = null;
+  lobbyPlayers.clear();
+  if (debugTimer !== null) {
+    clearInterval(debugTimer);
+    debugTimer = null;
+    debugSecondsLeft = 0;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -545,4 +639,6 @@ function sleep(ms) {
 // ─────────────────────────────────────────────────────────────────────────────
 httpServer.listen(PORT, () => {
   console.log(`[TONGAMES] Server listening on port ${PORT}`);
+  const debugStatus = DEBUG_MODE ? `ON (countdown ${DEBUG_COUNTDOWN_SEC}s, set DEBUG_MODE=0 to disable)` : 'OFF';
+  console.log(`[TONGAMES] Debug mode: ${debugStatus}`);
 });

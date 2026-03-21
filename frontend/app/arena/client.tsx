@@ -1,47 +1,94 @@
 "use client";
 
 import Image from 'next/image';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Dice } from '@/components/Dice';
 import { useGameSocket } from '@/lib/gameSocket';
+import type { Player, GamePhase, RoundResult } from '@/lib/gameSocket';
 
-interface ArenaClientProps {
-  baseAppUrl: string;
-  lobbyConnectApiUrl: string;
+// Player type augmented with hp (hp is in the runtime object; IDE may have stale cache)
+type LivePlayer = Player & { hp?: number };
+
+// ── Class metadata ─────────────────────────────────────────────────────────────
+const CLASS_INFO: Record<string, { name: string; icon: string; color: string }> = {
+  '0': { name: 'TITAN',       icon: 'shield',         color: 'primary'   },
+  '1': { name: 'SPELLWEAVER', icon: 'auto_fix_high',  color: 'tertiary'  },
+  '2': { name: 'SHADOW',      icon: 'visibility_off', color: 'secondary' },
+};
+
+function getClassInfo(classType: string | number | undefined) {
+  return CLASS_INFO[String(classType ?? '')] ?? { name: '???', icon: 'help_outline', color: 'outline' };
 }
 
-const MOCK_PLAYERS = [
-  { name: 'NexusNode', status: 'DEFENDING', color: 'secondary', health: 2 },
-  { name: 'VoidWalker', status: 'WAITING', color: 'tertiary-container', health: 1 },
-  { name: 'CyberViper', status: 'READY', color: 'secondary', health: 3 },
-  { name: 'ShadowPulse', status: 'ROLLING...', color: 'outline', health: 0 },
-];
+function getPlayerStatus(player: LivePlayer, phase: GamePhase): string {
+  if (!player.alive) return 'ELIMINATED';
+  switch (phase) {
+    case 'COMMIT':  return player.committed ? 'COMMITTED ✓'  : 'COMMITTING...';
+    case 'REVEAL':  return player.revealed  ? 'REVEALED ✓'   : 'REVEALING...';
+    case 'RESOLVE': return 'RESOLVING...';
+    default:        return 'READY';
+  }
+}
 
-export function ArenaClient({ baseAppUrl, lobbyConnectApiUrl }: ArenaClientProps) {
-  const { state } = useGameSocket();
+interface ArenaClientProps {
+  lobbyConnectApiUrl: string;
+  baseAppUrl?: string;
+}
 
-  // Get dice rolls and rolling state
+export function ArenaClient({ lobbyConnectApiUrl }: ArenaClientProps) {
+  const { state, send } = useGameSocket();
+
+  const handleTargetSelect = useCallback((targetAddress: string) => {
+    send('SELECT_TARGET', { target: targetAddress });
+  }, [send]);
+
+  // Always show at least 4 slots; null = empty waiting slot
+  const playerSlots = useMemo(
+    () => Array.from({ length: Math.max(4, state.players.length) }, (_, i) => (state.players[i] as LivePlayer | undefined) ?? null),
+    [state.players]
+  );
+
+  // Dice state keyed by address
   const diceRollsByAddress = useMemo(() => {
     const map: Record<string, { roll: number; diceMax: number; isRolling: boolean }> = {};
     state.players.forEach((player) => {
       const roll = state.diceRolls.get(player.address);
-      const isRolling = state.rollingPlayers.has(player.address);
       map[player.address] = {
-        roll: roll?.roll || 0,
-        diceMax: roll?.diceMax || 10,
-        isRolling,
+        roll:      roll?.roll    ?? 0,
+        diceMax:   roll?.diceMax ?? 10,
+        isRolling: state.rollingPlayers.has(player.address),
       };
     });
     return map;
   }, [state.diceRolls, state.rollingPlayers, state.players]);
 
+  // Center banner from live game state
+  const centerBanner = useMemo(() => {
+    if (state.winner) {
+      const wp = state.players.find(p => p.address === state.winner);
+      const name = wp?.displayName ?? state.winner.slice(0, 8);
+      return { text: `${name} WINS!`, style: 'bg-secondary text-on-secondary shadow-[0_0_40px_rgba(125,255,162,0.6)]' };
+    }
+    if (state.phase === 'COMMIT') {
+      if (state.myAddress && !state.myTarget)
+        return { text: `Round ${state.round} — SELECT TARGET`, style: 'bg-error/90 text-white shadow-[0_0_40px_rgba(255,60,60,0.5)]' };
+      return { text: `Round ${state.round} — COMMIT HASH`, style: 'bg-primary-container text-on-primary-container shadow-[0_0_40px_rgba(99,138,255,0.4)]' };
+    }
+    if (state.phase === 'REVEAL')  return { text: `Round ${state.round} — REVEAL`,  style: 'bg-primary-container text-on-primary-container shadow-[0_0_40px_rgba(99,138,255,0.4)]' };
+    if (state.phase === 'RESOLVE') return { text: 'COMBAT RESOLVING!',              style: 'bg-tertiary text-on-tertiary shadow-[0_0_40px_rgba(255,200,100,0.4)]' };
+    if (state.round > 0)           return { text: `Round ${state.round} complete`,  style: 'bg-surface-container-highest text-outline' };
+    return null;
+  }, [state.winner, state.phase, state.round, state.players, state.myAddress, state.myTarget]);
+
   return (
     <main className="pt-20 sm:pt-24 pb-24 sm:pb-32 px-4 sm:px-6 min-h-screen flex flex-col gap-6 sm:gap-8 max-w-[1600px] mx-auto relative z-10">
-      {/* Arena Header: Prize Pool & Global Stats */}
+      {/* Arena Header */}
       <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-4 lg:gap-6">
         <div className="flex flex-col">
           <span className="font-label text-secondary uppercase tracking-[0.2em] sm:tracking-[0.3em] text-xs sm:text-sm">Active Arena Session</span>
-          <h1 className="font-headline font-black text-3xl sm:text-4xl lg:text-5xl italic text-white uppercase tracking-tighter">FATAL FOUR-WAY #502</h1>
+          <h1 className="font-headline font-black text-3xl sm:text-4xl lg:text-5xl italic text-white uppercase tracking-tighter">
+            {state.roomId ? `ROOM ${state.roomId}` : 'AWAITING GAME'}
+          </h1>
         </div>
         {/* Prize Pool Display */}
         <div className="glass-panel p-4 sm:p-6 rounded-xl flex flex-col items-center w-full lg:w-auto lg:min-w-[320px] relative overflow-hidden">
@@ -54,7 +101,7 @@ export function ArenaClient({ baseAppUrl, lobbyConnectApiUrl }: ArenaClientProps
         </div>
       </div>
 
-      {/* Combat Grid: 4 Player Layout */}
+      {/* Combat Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 h-auto lg:h-[650px]">
         {/* Left Wing: Combat Log */}
         <div className="lg:col-span-3 flex flex-col gap-4">
@@ -63,16 +110,29 @@ export function ArenaClient({ baseAppUrl, lobbyConnectApiUrl }: ArenaClientProps
             Live Combat Log
           </h3>
           <div className="glass-panel rounded-xl flex-1 p-4 overflow-y-auto font-robotomono text-xs space-y-3 border-l-4 border-secondary/30">
-            <div className="opacity-60 text-outline">[14:02:11] Game started.</div>
-            <div className="text-on-surface"><span className="text-secondary">@CyberViper</span> joined seat 3.</div>
-            <div className="text-on-surface"><span className="text-tertiary">@VoidWalker</span> rolled a <span className="text-white font-bold">18</span>!</div>
-            <div className="bg-error-container/20 p-2 rounded border border-error/10">
-              <span className="text-secondary font-bold">SPLASH DMG!</span> @VoidWalker dealt 20 DMG to all.
-            </div>
-            <div className="text-on-surface"><span className="text-secondary">@NexusNode</span> used <span className="text-primary-container">Energy Shield</span>.</div>
-            <div className="text-on-surface"><span className="text-primary">@ShadowPulse</span> is charging...</div>
-            <div className="text-on-surface"><span className="text-secondary">@CyberViper</span> rolled a <span className="text-white font-bold">12</span>.</div>
-            <div className="text-outline italic">Calculating round winner...</div>
+            {state.round === 0 && <div className="opacity-60 text-outline">Waiting for game to start...</div>}
+            {state.phase === 'COMMIT'  && <div className="text-primary">[Round {state.round}] Commit phase.</div>}
+            {state.phase === 'REVEAL'  && <div className="text-primary">[Round {state.round}] Reveal phase.</div>}
+            {state.phase === 'RESOLVE' && <div className="text-tertiary">[Round {state.round}] Resolving combat...</div>}
+            {state.winner && (
+              <div className="text-secondary font-bold">
+                GAME OVER — {state.players.find(p => p.address === state.winner)?.displayName ?? state.winner.slice(0, 8)} wins!
+              </div>
+            )}
+            {Array.isArray(state.results) && (state.results as RoundResult[]).map((r, i) => {
+              const aName = state.players.find(p => p.address === r.attacker)?.displayName ?? r.attacker.slice(0, 6);
+              const tName = state.players.find(p => p.address === r.target)?.displayName   ?? r.target.slice(0, 6);
+              return (
+                <div key={i} className={r.eliminated ? 'bg-error-container/20 p-2 rounded border border-error/10' : ''}>
+                  <span className="text-secondary">@{aName}</span>
+                  {r.isCrit ? <span className="text-tertiary font-bold"> CRIT! </span> : <span className="text-outline"> → </span>}
+                  <span className="text-on-surface">@{tName}</span>
+                  {' '}<span className="text-white font-bold">{r.damage} DMG</span>
+                  {' '}(<span className={r.targetHpAfter > 0 ? 'text-secondary' : 'text-error'}>{r.targetHpAfter} HP</span>)
+                  {r.eliminated && <span className="text-error font-bold"> ELIM!</span>}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -82,54 +142,122 @@ export function ArenaClient({ baseAppUrl, lobbyConnectApiUrl }: ArenaClientProps
           <div className="absolute inset-0 opacity-10 pointer-events-none">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary rounded-full blur-[120px] opacity-20"></div>
           </div>
-          {/* 4 Player Grid */}
+          {/* Player Grid */}
           <div className="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-6 lg:gap-8 h-full relative z-20">
-            {MOCK_PLAYERS.map((player, idx) => {
-              const diceData = diceRollsByAddress[state.players[idx]?.address] || { roll: 0, diceMax: 10, isRolling: false };
+            {playerSlots.map((player, idx) => {
+              const diceData   = player ? (diceRollsByAddress[player.address] ?? { roll: 0, diceMax: 10, isRolling: false }) : null;
+              const cls        = getClassInfo(player?.classType);
+              const hp         = player?.hp ?? 100;
+              const status     = player ? getPlayerStatus(player, state.phase) : 'WAITING';
+              const name       = player ? (player.displayName ?? `${player.address.slice(0, 4)}…${player.address.slice(-3)}`) : '---';
+              const eliminated = player ? !player.alive : false;
+              const isMe       = !!player && player.address === state.myAddress;
+              const isMyTarget = !!player && player.address === state.myTarget;
+              const canTarget  = !isMe && !!player && !eliminated &&
+                                 (state.phase === 'COMMIT' || state.phase === 'REVEAL') &&
+                                 !!state.myAddress;
               return (
-                <div key={player.name} className="flex flex-col items-center justify-center gap-4 group p-4 rounded-2xl transition-all hover:bg-white/5 border border-transparent hover:border-white/10">
-                  <div className="flex gap-1 mb-1">
-                    {[...Array(3)].map((_, i) => (
+                <div
+                  key={player?.address ?? idx}
+                  role={canTarget ? 'button' : undefined}
+                  onClick={canTarget ? () => handleTargetSelect(player!.address) : undefined}
+                  className={`group relative flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-2xl transition-all border ${
+                    eliminated   ? 'border-error/20 opacity-50 grayscale'
+                    : isMyTarget ? 'border-error/80 ring-2 ring-error/50 shadow-[0_0_20px_rgba(255,60,60,0.3)] cursor-pointer'
+                    : canTarget  ? 'border-white/10 hover:border-error/60 hover:shadow-[0_0_15px_rgba(255,60,60,0.15)] cursor-pointer'
+                    : player     ? 'border-white/10 hover:bg-white/5 hover:border-white/20'
+                    :              'border-dashed border-outline-variant/20'
+                  }`}
+                >
+                  {/* YOU badge */}
+                  {isMe && player && !eliminated && (
+                    <span className="absolute top-1.5 left-1.5 bg-primary/20 text-primary font-robotomono text-[7px] uppercase tracking-widest px-1.5 py-0.5 rounded z-10">YOU</span>
+                  )}
+                  {/* TARGETED badge */}
+                  {isMyTarget && player && !eliminated && (
+                    <div className="absolute top-1.5 right-1.5 bg-error/20 text-error font-robotomono text-[7px] uppercase tracking-widest px-1.5 py-0.5 rounded flex items-center gap-0.5 z-10">
+                      <span className="material-symbols-outlined text-[10px]" style={{ fontVariationSettings: '"FILL" 1' }}>gps_fixed</span>
+                      TARGET
+                    </div>
+                  )}
+                  {/* Crosshair hover overlay for targetable opponents */}
+                  {canTarget && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl">
+                      <span className="material-symbols-outlined text-error/70 text-5xl drop-shadow-[0_0_10px_rgba(255,60,60,0.6)]">gps_fixed</span>
+                    </div>
+                  )}
+                  {/* HP bar */}
+                  <div className="w-full px-1">
+                    <div className="flex justify-between font-robotomono text-[9px] text-outline mb-0.5">
+                      <span>HP</span><span>{player ? hp : '—'}</span>
+                    </div>
+                    <div className="h-1 bg-surface-container-highest rounded-full overflow-hidden">
                       <div
-                        key={i}
-                        className={`hp-segment ${i < player.health ? `bg-${player.color} shadow-[0_0_8px_rgba(125,255,162,0.6)]` : 'bg-surface-container-highest'}`}
-                      ></div>
-                    ))}
+                        className={`h-full transition-all duration-500 ${
+                          !player ? 'bg-outline/20' : hp > 50 ? 'bg-secondary' : hp > 25 ? 'bg-tertiary' : 'bg-error'
+                        }`}
+                        style={{ width: player ? `${hp}%` : '0%' }}
+                      />
+                    </div>
                   </div>
+                  {/* Avatar + dice */}
                   <div className="relative">
-                    {diceData.isRolling ? (
-                      <Dice isRolling={true} value={diceData.roll} diceMax={diceData.diceMax} />
-                    ) : diceData.roll > 0 ? (
-                      <Dice isRolling={false} value={diceData.roll} diceMax={diceData.diceMax} />
+                    {player ? (
+                      player.avatarUrl ? (
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-full overflow-hidden border-2 border-white/20 drop-shadow-[0_0_15px_rgba(99,138,255,0.4)] flex-shrink-0">
+                          <Image
+                            src={player.avatarUrl}
+                            alt={name}
+                            width={128}
+                            height={128}
+                            className="w-full h-full object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-full bg-surface-container-highest border-2 border-white/10 drop-shadow-[0_0_15px_rgba(99,138,255,0.4)] flex items-center justify-center">
+                          <span className={`font-headline font-black text-2xl sm:text-3xl text-${cls.color}`}>
+                            {name.replace('@', '').slice(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                      )
                     ) : (
                       <Image
                         src="/assets/arena_particle.webp"
-                        alt={player.name}
+                        alt="Waiting for player"
                         width={128}
                         height={128}
-                        className="w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 object-contain drop-shadow-[0_0_15px_rgba(99,138,255,0.4)]"
+                        className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 object-contain opacity-20"
                       />
                     )}
-                    {diceData.roll > 0 && (
-                      <div className={`absolute -top-2 -right-2 w-10 h-10 bg-surface-container-highest border-2 border-${player.color} rounded-lg flex items-center justify-center font-headline font-black text-${player.color}`}>
-                        {String(diceData.roll).padStart(2, '0')}
+                    {diceData && (diceData.isRolling || diceData.roll > 0) && (
+                      <div className="absolute -top-3 -right-3 z-10">
+                        <Dice isRolling={diceData.isRolling} value={diceData.roll} diceMax={diceData.diceMax} className="!w-10 !h-10 sm:!w-12 sm:!h-12" />
                       </div>
                     )}
                   </div>
+                  {/* Name + class + status */}
                   <div className="text-center">
-                    <div className="font-headline font-bold text-white text-sm uppercase tracking-tight">@{player.name}</div>
-                    <div className={`font-robotomono text-[10px] text-${player.color}`}>{player.status}</div>
+                    <div className={`font-headline font-bold text-sm uppercase tracking-tight flex items-center gap-1 justify-center ${player ? 'text-white' : 'text-outline'}`}>
+                      {player && <span className={`material-symbols-outlined text-${cls.color} text-sm`}>{cls.icon}</span>}
+                      @{name}
+                    </div>
+                    <div className={`font-robotomono text-[10px] ${eliminated ? 'text-error' : `text-${cls.color}`}`}>
+                      {player ? `${cls.name} · ${status}` : 'WAITING'}
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
           {/* Center Banner */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
-            <div className="px-4 sm:px-8 py-2 sm:py-3 bg-secondary text-on-secondary rounded-full font-headline font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] text-[10px] sm:text-sm shadow-[0_0_40px_rgba(125,255,162,0.4)] whitespace-nowrap">
-              NexusNode Wins Turn!
+          {centerBanner && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
+              <div className={`px-4 sm:px-8 py-2 sm:py-3 rounded-full font-headline font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] text-[10px] sm:text-sm whitespace-nowrap ${centerBanner.style}`}>
+                {centerBanner.text}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Right Wing: Live Betting & Stats */}
@@ -149,29 +277,59 @@ export function ArenaClient({ baseAppUrl, lobbyConnectApiUrl }: ArenaClientProps
             </p>
           </div>
 
-          {/* Betting Stats Card */}
+          {/* Your Target (shown during COMMIT/REVEAL) */}
+          {(state.phase === 'COMMIT' || state.phase === 'REVEAL') && state.myAddress && (
+            <div className="glass-panel rounded-2xl p-4 flex flex-col gap-2">
+              <h4 className="font-headline font-bold uppercase text-xs tracking-[0.2em] text-outline flex items-center gap-2">
+                <span className="material-symbols-outlined text-error text-sm">gps_fixed</span>
+                Your Target
+              </h4>
+              {state.myTarget ? (() => {
+                const tp = state.players.find(p => p.address === state.myTarget);
+                const tCls = getClassInfo(tp?.classType);
+                const tName = tp?.displayName ?? state.myTarget?.slice(0, 8) ?? '???';
+                return (
+                  <div className="flex items-center gap-3 bg-error/10 border border-error/30 rounded-xl px-3 py-2">
+                    <span className={`material-symbols-outlined text-${tCls.color} text-base`} style={{ fontVariationSettings: '"FILL" 1' }}>{tCls.icon}</span>
+                    <span className="font-bold text-sm text-white">@{tName}</span>
+                    <span className={`ml-auto font-robotomono text-[9px] text-${tCls.color} uppercase`}>{tCls.name}</span>
+                  </div>
+                );
+              })() : (
+                <p className="font-robotomono text-[10px] text-error animate-pulse">Tap a player card to select target</p>
+              )}
+            </div>
+          )}
+
+          {/* Live Player HP */}
           <div className="glass-panel rounded-2xl p-6 flex flex-col gap-4">
             <div className="flex justify-between items-center">
-              <h4 className="font-headline font-bold uppercase text-xs tracking-[0.2em] text-outline">Win Probability</h4>
+              <h4 className="font-headline font-bold uppercase text-xs tracking-[0.2em] text-outline">Player HP</h4>
               <span className="material-symbols-outlined text-primary text-lg">monitoring</span>
             </div>
             <div className="space-y-3">
-              {[
-                { name: 'NexusNode', prob: 42, color: 'secondary' },
-                { name: 'CyberViper', prob: 38, color: 'secondary' },
-                { name: 'VoidWalker', prob: 12, color: 'tertiary-container' },
-                { name: 'ShadowPulse', prob: 8, color: 'outline' },
-              ].map((p) => (
-                <div key={p.name}>
-                  <div className="flex justify-between font-label text-[10px] mb-1">
-                    <span className="text-white">{p.name}</span>
-                    <span className={`text-${p.color}`}>{p.prob}%</span>
+              {state.players.length === 0 && (
+                <p className="font-robotomono text-[10px] text-outline">No active players</p>
+              )}
+              {(state.players as LivePlayer[]).map((p) => {
+                const pCls  = getClassInfo(p.classType);
+                const pHp   = p.hp ?? 100;
+                const pName = p.displayName ?? p.address.slice(0, 8);
+                return (
+                  <div key={p.address} className={!p.alive ? 'opacity-40' : ''}>
+                    <div className="flex justify-between font-label text-[10px] mb-1">
+                      <span className={`text-${pCls.color}`}>{pName}</span>
+                      <span className="text-outline">{pHp} HP</span>
+                    </div>
+                    <div className="h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 ${pHp > 50 ? `bg-${pCls.color}` : pHp > 25 ? 'bg-tertiary' : 'bg-error'}`}
+                        style={{ width: `${pHp}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
-                    <div className={`h-full bg-${p.color} w-[${p.prob}%]`} style={{ width: `${p.prob}%` }}></div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
           {/* Active Bets List */}
@@ -194,37 +352,6 @@ export function ArenaClient({ baseAppUrl, lobbyConnectApiUrl }: ArenaClientProps
             <button className="m-4 bg-surface-container-highest hover:bg-primary-container text-on-surface hover:text-on-primary-container py-3 rounded-xl font-headline font-bold uppercase text-xs tracking-widest transition-all">
               Place Your Bet
             </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Featured Players Section (Bento Style) */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="md:col-span-2 glass-panel p-6 rounded-3xl flex items-center gap-6 group cursor-pointer hover:bg-primary/5 transition-all">
-          <div className="w-24 h-24 rounded-2xl bg-surface-container-highest overflow-hidden p-2 relative">
-            <Image src="/assets/arena_bg.webp" alt="Top Player" width={96} height={96} className="w-full h-full group-hover:scale-110 transition-transform object-cover" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="font-label text-secondary text-[10px] uppercase tracking-[0.2em]">Highest Win Streak</span>
-            <h3 className="font-headline font-black text-2xl text-white italic tracking-tighter uppercase">CYBERVIPER</h3>
-            <div className="flex gap-4 items-center mt-1">
-              <span className="font-robotomono text-sm text-outline">Level 88</span>
-              <span className="font-robotomono text-sm text-primary">12-0 Today</span>
-            </div>
-          </div>
-        </div>
-        <div className="glass-panel p-6 rounded-3xl flex flex-col justify-between">
-          <span className="font-label text-outline text-[10px] uppercase tracking-widest">Global Vault Size</span>
-          <div className="flex flex-col">
-            <span className="font-headline font-black text-3xl text-white">1.8M</span>
-            <span className="font-robotomono text-xs text-primary-container uppercase">Toncoin Staked</span>
-          </div>
-        </div>
-        <div className="glass-panel p-6 rounded-3xl flex flex-col justify-between bg-gradient-to-br from-tertiary-container/20 to-transparent">
-          <span className="font-label text-outline text-[10px] uppercase tracking-widest">Active Battles</span>
-          <div className="flex items-baseline gap-2">
-            <span className="font-headline font-black text-4xl text-white">124</span>
-            <span className="w-2 h-2 rounded-full bg-secondary animate-pulse mb-1"></span>
           </div>
         </div>
       </div>

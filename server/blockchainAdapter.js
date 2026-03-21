@@ -23,6 +23,7 @@ const OP = {
   START_GAME:      0x20,
   TRIGGER_RESOLVE: 0x21,
   TRIGGER_PAYOUT:  0x22,
+  PLACE_BET:       0x40,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -35,15 +36,21 @@ export class BlockchainAdapter {
    * @param {string} [opts.endpoint]        - TON HTTP API endpoint
    */
   constructor({ gameContractAddr, escrowAddr, ownerMnemonic, endpoint }) {
-    this.gameContractAddr = Address.parse(gameContractAddr);
-    this.escrowAddr       = Address.parse(escrowAddr);
-    this.ownerMnemonic    = ownerMnemonic.split(" ");
+    this.gameContractAddr = gameContractAddr ? Address.parse(gameContractAddr) : null;
+    this.escrowAddr       = escrowAddr       ? Address.parse(escrowAddr)       : null;
+    this.ownerMnemonic    = ownerMnemonic    ? ownerMnemonic.split(" ")        : [];
     this.endpoint         = endpoint || "https://toncenter.com/api/v2/jsonRPC";
 
     this.client  = null;
     this.wallet  = null;
     this.keyPair = null;
-    this._ready  = this._init();
+    this._ready  = null; // set by create()
+  }
+
+  static create(opts) {
+    const adapter = new BlockchainAdapter(opts);
+    adapter._ready = adapter.ownerMnemonic.length ? adapter._init() : Promise.resolve();
+    return adapter;
   }
 
   async _init() {
@@ -133,6 +140,20 @@ export class BlockchainAdapter {
       .storeUint(0, 64)
       .storeUint(BigInt("0x" + secretHex), 256)
       .storeUint(BigInt("0x" + nonceHex),  256)
+      .endCell()
+      .toBoc()
+      .toString("base64");
+  }
+
+  /**
+   * Build a PlaceBet payload for a spectator.
+   * @param {string} onPlayerAddress  TON address of the player being backed
+   */
+  buildBetPayload(onPlayerAddress) {
+    return beginCell()
+      .storeUint(OP.PLACE_BET, 32)
+      .storeUint(0, 64)             // query_id
+      .storeAddress(Address.parse(onPlayerAddress))
       .endCell()
       .toBoc()
       .toString("base64");

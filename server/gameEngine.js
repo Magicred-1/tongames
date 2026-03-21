@@ -76,7 +76,7 @@ export class GameEngine {
   // ── Phase transitions ────────────────────────────────────────────────────────
 
   startGame() {
-    if (this.players.size < 2) throw new Error("Need at least 2 players");
+    if (this.players.size < 1) throw new Error("Need at least 1 player");
     this.state = "READY";
   }
 
