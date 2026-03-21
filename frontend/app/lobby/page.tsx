@@ -1,11 +1,19 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Header from '@/components/Header';
 import { useSearchParams } from 'next/navigation';
 
 export default function LobbyPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-mesh" />}>
+      <LobbyPageContent />
+    </Suspense>
+  );
+}
+
+function LobbyPageContent() {
   const searchParams = useSearchParams();
   const [syncStatus, setSyncStatus] = useState('connecting' as 'connecting' | 'connected' | 'offline');
 
