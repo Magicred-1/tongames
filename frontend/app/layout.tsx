@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import DynamicTonWrapper from "@/components/DynamicTonWrapper/Wrapper";
+import { GameSocketProvider } from "@/lib/gameSocket";
 
 const inter = Inter({
   variable: "--font-body",
@@ -41,7 +42,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-surface overflow-x-hidden">
         <DynamicTonWrapper>
-          {children}
+          <GameSocketProvider>
+            {children}
+          </GameSocketProvider>
         </DynamicTonWrapper>
       </body>
     </html>

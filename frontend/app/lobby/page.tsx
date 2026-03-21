@@ -1,15 +1,20 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Header from '@/components/Header';
 import { useSearchParams } from 'next/navigation';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useGameSocket } from '@/lib/gameSocket';
 
-type TelegramAwareWindow = Window & {
-  Telegram?: {
-    WebApp?: unknown;
-  };
-};
+type TelegramWebApp = { initData?: string };
+type TelegramAwareWindow = Window & { Telegram?: { WebApp?: TelegramWebApp } };
+
+const SYNC_LABELS = {
+  connecting: 'CONNECTING...',
+  connected: 'SYNC CONNECTED',
+  offline: 'SYNC OFFLINE',
+} as const;
 
 export default function LobbyPage() {
   return (
@@ -21,61 +26,44 @@ export default function LobbyPage() {
 
 function LobbyPageContent() {
   const searchParams = useSearchParams();
-  const [syncStatus, setSyncStatus] = useState('connecting' as 'connecting' | 'connected' | 'offline');
-  const isTelegramWebApp = useMemo(() => {
-    if (globalThis.window === undefined) return false;
+  const { state, send } = useGameSocket();
+  const { user } = useDynamicContext();
 
-    const w = globalThis.window as TelegramAwareWindow;
-    const fromDynamicAuth = w.sessionStorage.getItem('dynamicTelegramAuth') === '1';
-    const fromQuery = searchParams.get('telegram') === '1';
-    const hasTelegramObject = Boolean(w.Telegram?.WebApp);
-    const userAgent = w.navigator.userAgent || '';
-    const hasTelegramUA = /Telegram/i.test(userAgent);
-
-    return fromDynamicAuth || fromQuery || hasTelegramObject || hasTelegramUA;
-  }, [searchParams]);
-
-  const websocketUrl = useMemo(() => {
-    const fromQuery = searchParams.get('ws');
-    if (fromQuery) return fromQuery;
-
-    if (globalThis.window === undefined) return null;
-    const protocol = globalThis.window.location.protocol === 'https:' ? 'wss' : 'ws';
-    return `${protocol}://${globalThis.window.location.hostname}:4020`;
-  }, [searchParams]);
-
-  const effectiveSyncStatus = websocketUrl ? syncStatus : 'offline';
-
-  let syncStatusLabel = 'SYNC OFFLINE';
-  if (effectiveSyncStatus === 'connected') {
-    syncStatusLabel = 'SYNC CONNECTED';
-  } else if (effectiveSyncStatus === 'connecting') {
-    syncStatusLabel = 'CONNECTING...';
-  }
-
+  // Announce this player to the lobby as soon as they're authenticated
   useEffect(() => {
-    if (!websocketUrl) return;
+    if (!user || state.syncStatus !== 'connected') return;
 
-    let active = true;
-    const socket = new WebSocket(websocketUrl);
+    const telegramCred = user.verifiedCredentials.find(
+      (c) => c.format === 'oauth' && c.oauthProvider === 'telegram'
+    );
+    const blockchainCred = user.verifiedCredentials.find(
+      (c) => c.format === 'blockchain'
+    );
 
-    socket.onopen = () => {
-      if (active) setSyncStatus('connected');
-    };
+    const playerAddress =
+      blockchainCred?.address ??
+      telegramCred?.oauthAccountId ??
+      user.userId;
 
-    socket.onerror = () => {
-      if (active) setSyncStatus('offline');
-    };
+    const displayName =
+      telegramCred?.oauthUsername ?? playerAddress;
 
-    socket.onclose = () => {
-      if (active) setSyncStatus('offline');
-    };
+    const avatarUrl =
+      telegramCred?.oauthAccountPhotos?.[0] ?? undefined;
 
-    return () => {
-      active = false;
-      socket.close();
-    };
-  }, [websocketUrl]);
+    send('LOBBY_JOIN', { playerAddress, displayName, avatarUrl });
+  }, [user, state.syncStatus, send]);
+
+  const isTelegramWebApp = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const w = window as TelegramAwareWindow;
+    const hasInitData = Boolean(w.Telegram?.WebApp?.initData);
+    const fromSessionFlag = w.sessionStorage.getItem('dynamicTelegramAuth') === '1';
+    const fromQueryFlag = searchParams.get('telegram') === '1';
+    return hasInitData || fromSessionFlag || fromQueryFlag;
+  }, [searchParams]);
+
+  const syncStatusLabel = SYNC_LABELS[state.syncStatus];
 
   return (
     <div className="bg-mesh font-body text-on-surface min-h-screen overflow-hidden selection:bg-primary-container selection:text-white">
@@ -103,12 +91,8 @@ function LobbyPageContent() {
               </div>
               <div className="mt-6 sm:mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="flex-1 bg-surface-container-highest/40 px-4 py-3 rounded-lg border border-outline-variant/10">
-                  <p className="text-[10px] text-outline uppercase font-robotomono">Min Bet</p>
-                  <p className="font-headline font-bold text-xl">5 TON</p>
-                </div>
-                <div className="flex-1 bg-surface-container-highest/40 px-4 py-3 rounded-lg border border-outline-variant/10">
-                  <p className="text-[10px] text-outline uppercase font-robotomono">Max Bet</p>
-                  <p className="font-headline font-bold text-xl">100 TON</p>
+                  <p className="text-[10px] text-outline uppercase font-robotomono">Lobby Entry Fee</p>
+                  <p className="font-bold text-lg">0.1 TON</p>
                 </div>
               </div>
             </div>
@@ -116,49 +100,57 @@ function LobbyPageContent() {
             <div className="bg-surface-container-low p-5 sm:p-8 rounded-xl">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-headline font-bold text-xl sm:text-2xl uppercase tracking-tighter">Active Lobby</h3>
-                <span className="bg-secondary/20 text-secondary px-3 py-1 rounded-full font-robotomono text-xs sm:text-sm">3/8 PLAYERS</span>
+                <span className="bg-secondary/20 text-secondary px-3 py-1 rounded-full font-robotomono text-xs sm:text-sm">
+                  {state.players.length}/4 PLAYERS
+                </span>
               </div>
               <div className="space-y-4">
-                {/* Player Row 1 */}
-                <div className="flex items-center justify-between p-4 bg-surface-container-highest/30 rounded-lg group hover:bg-surface-container-highest/60 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-on-primary font-bold">JD</div>
-                    <div>
-                      <p className="font-bold text-sm">Joz_Doge.ton</p>
-                      <p className="font-robotomono text-[10px] text-outline">EQCv...9sA2</p>
+                {state.players.map((player) => {
+                  const name = player.displayName ?? `${player.address.slice(0, 6)}...${player.address.slice(-4)}`;
+                  const initials = name.slice(0, 2).toUpperCase();
+                  return (
+                    <div key={player.address} className="flex items-center justify-between p-4 bg-surface-container-highest/30 rounded-lg hover:bg-surface-container-highest/60 transition-colors">
+                      <div className="flex items-center gap-4">
+                        {player.avatarUrl ? (
+                          <Image
+                            src={player.avatarUrl}
+                            alt={name}
+                            width={40}
+                            height={40}
+                            className="w-10 h-10 rounded-full object-cover border border-white/20"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-on-primary font-bold text-xs">
+                            {initials}
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-bold text-sm">{name}</p>
+                          {player.classType && (
+                            <p className="font-robotomono text-[10px] text-outline uppercase">{player.classType}</p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: '"FILL" 1' }}>check_circle</span>
                     </div>
-                  </div>
-                  <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: '"FILL" 1' }}>check_circle</span>
-                </div>
-                {/* Player Row 2 */}
-                <div className="flex items-center justify-between p-4 bg-surface-container-highest/30 rounded-lg group hover:bg-surface-container-highest/60 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tertiary to-tertiary-container flex items-center justify-center text-on-tertiary font-bold">KX</div>
-                    <div>
-                      <p className="font-bold text-sm">KingX.ton</p>
-                      <p className="font-robotomono text-[10px] text-outline">EQA4...xP11</p>
+                  );
+                })}
+                {state.players.length === 0 && (
+                  <div className="flex items-center gap-4 p-4 border border-dashed border-outline-variant/20 rounded-lg opacity-40">
+                    <div className="w-10 h-10 rounded-full border border-dashed border-outline-variant/40 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-xs">add</span>
                     </div>
+                    <p className="font-robotomono text-xs uppercase tracking-widest">Waiting for players...</p>
                   </div>
-                  <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: '"FILL" 1' }}>check_circle</span>
-                </div>
-                {/* Player Row 3 */}
-                <div className="flex items-center justify-between p-4 bg-surface-container-highest/30 rounded-lg group hover:bg-surface-container-highest/60 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-secondary-fixed to-secondary-fixed-dim flex items-center justify-center text-on-secondary font-bold">NA</div>
-                    <div>
-                      <p className="font-bold text-sm">Nebula.eth</p>
-                      <p className="font-robotomono text-[10px] text-outline">EQD0...fG7b</p>
+                )}
+                {state.players.length > 0 && state.players.length < 8 && (
+                  <div className="flex items-center gap-4 p-4 border border-dashed border-outline-variant/20 rounded-lg opacity-40">
+                    <div className="w-10 h-10 rounded-full border border-dashed border-outline-variant/40 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-xs">add</span>
                     </div>
+                    <p className="font-robotomono text-xs uppercase tracking-widest">Waiting for player...</p>
                   </div>
-                  <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: '"FILL" 1' }}>check_circle</span>
-                </div>
-                {/* Empty Slot */}
-                <div className="flex items-center gap-4 p-4 border border-dashed border-outline-variant/20 rounded-lg opacity-40">
-                  <div className="w-10 h-10 rounded-full border border-dashed border-outline-variant/40 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-xs">add</span>
-                  </div>
-                  <p className="font-robotomono text-xs uppercase tracking-widest">Waiting for player...</p>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -174,33 +166,33 @@ function LobbyPageContent() {
               </div>
             ) : (
               <>
-            <div className="relative mb-8 sm:mb-12">
-              {/* Corner Accents */}
-              <div className="absolute -top-4 -left-4 w-12 h-12 border-t-4 border-l-4 border-primary rounded-tl-xl"></div>
-              <div className="absolute -top-4 -right-4 w-12 h-12 border-t-4 border-r-4 border-primary rounded-tr-xl"></div>
-              <div className="absolute -bottom-4 -left-4 w-12 h-12 border-b-4 border-l-4 border-primary rounded-bl-xl"></div>
-              <div className="absolute -bottom-4 -right-4 w-12 h-12 border-b-4 border-r-4 border-primary rounded-br-xl"></div>
-              {/* QR Wrapper */}
-              <div className="bg-surface-container-highest p-8 rounded-2xl shadow-[0_0_80px_rgba(99,138,255,0.2)]">
-                <div className="bg-white p-3 sm:p-4 rounded-xl">
-                  <Image
-                    src="/assets/lobby_preview.webp"
-                    alt="Join Lobby QR Code"
-                    width={256}
-                    height={256}
-                    className="w-52 h-52 sm:w-64 sm:h-64"
-                  />
+                <div className="relative mb-8 sm:mb-12">
+                  {/* Corner Accents */}
+                  <div className="absolute -top-4 -left-4 w-12 h-12 border-t-4 border-l-4 border-primary rounded-tl-xl"></div>
+                  <div className="absolute -top-4 -right-4 w-12 h-12 border-t-4 border-r-4 border-primary rounded-tr-xl"></div>
+                  <div className="absolute -bottom-4 -left-4 w-12 h-12 border-b-4 border-l-4 border-primary rounded-bl-xl"></div>
+                  <div className="absolute -bottom-4 -right-4 w-12 h-12 border-b-4 border-r-4 border-primary rounded-br-xl"></div>
+                  {/* QR Wrapper */}
+                  <div className="bg-surface-container-highest p-8 rounded-2xl shadow-[0_0_80px_rgba(99,138,255,0.2)]">
+                    <div className="bg-white p-3 sm:p-4 rounded-xl">
+                      <Image
+                        src="/assets/lobby_preview.webp"
+                        alt="Join Lobby QR Code"
+                        width={256}
+                        height={256}
+                        className="w-52 h-52 sm:w-64 sm:h-64"
+                      />
+                    </div>
+                  </div>
+                  {/* Scan Indicator Pulsing */}
+                  <div className="absolute inset-0 border-2 border-primary/30 rounded-2xl animate-pulse scale-110 pointer-events-none"></div>
                 </div>
-              </div>
-              {/* Scan Indicator Pulsing */}
-              <div className="absolute inset-0 border-2 border-primary/30 rounded-2xl animate-pulse scale-110 pointer-events-none"></div>
-            </div>
-            <div className="space-y-4">
-              <h2 className="font-headline font-black text-3xl sm:text-4xl lg:text-5xl uppercase italic tracking-tighter">Scan to Join with your Phone</h2>
-              <p className="text-base sm:text-lg lg:text-xl text-outline-variant max-w-xl mx-auto leading-relaxed">
-                Navigate to <span className="text-primary font-bold">TONGAMES.XYZ</span>&nbsp;on your mobile browser or scan the code to initialize your warrior.
-              </p>
-            </div>
+                <div className="space-y-4">
+                  <h2 className="font-headline font-black text-3xl sm:text-4xl lg:text-5xl uppercase italic tracking-tighter">Scan to Join with your Phone</h2>
+                  <p className="text-base sm:text-lg lg:text-xl text-outline-variant max-w-xl mx-auto leading-relaxed">
+                    Navigate to <span className="text-primary font-bold">TONGAMES.XYZ</span>&nbsp;on your mobile browser or scan the code to initialize your warrior.
+                  </p>
+                </div>
               </>
             )}
             <div className="mt-8 sm:mt-12 lg:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-stretch gap-4 sm:gap-6 lg:gap-8 bg-surface-container-low/50 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-4 sm:py-6 rounded-2xl border border-outline-variant/10 w-full">
@@ -224,7 +216,7 @@ function LobbyPageContent() {
                 <span className="material-symbols-outlined text-primary text-4xl">schedule</span>
                 <div className="text-left">
                   <p className="font-robotomono text-xs uppercase text-outline">Sync Endpoint</p>
-                  <p className="font-bold text-xs sm:text-sm max-w-[220px] truncate">{websocketUrl || 'N/A'}</p>
+                  <p className="font-bold text-xs sm:text-sm max-w-[220px] truncate">{state.wsUrl ?? 'N/A'}</p>
                 </div>
               </div>
             </div>

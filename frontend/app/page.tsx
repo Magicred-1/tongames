@@ -1,39 +1,46 @@
 "use client";
 
-import { useMemo, useState } from 'react';
-import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTelegramLogin } from '@dynamic-labs/sdk-react-core';
+import { useDynamicContext, useTelegramLogin } from '@dynamic-labs/sdk-react-core';
+
+type TelegramWebApp = { initData?: string };
+type TelegramAwareWindow = Window & { Telegram?: { WebApp?: TelegramWebApp } };
+
+function isTelegramMiniApp(): boolean {
+  if (globalThis.window === undefined) return false;
+  return Boolean((globalThis.window as TelegramAwareWindow).Telegram?.WebApp?.initData);
+}
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setShowAuthFlow, user } = useDynamicContext();
   const { telegramSignIn } = useTelegramLogin();
-  const [isConnectingTelegram, setIsConnectingTelegram] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [telegramError, setTelegramError] = useState<string | null>(null);
 
-  const telegramButtonText = useMemo(() => {
-    if (isConnectingTelegram) {
-      return 'CONNECTING TELEGRAM...';
-    }
-
-    return 'CONNECT WITH TELEGRAM';
-  }, [isConnectingTelegram]);
+  useEffect(() => {
+    if (user) router.push('/lobby');
+  }, [user, router]);
 
   const handleConnectTelegram = async () => {
-    if (isConnectingTelegram) return;
+    if (isConnecting) return;
 
     setTelegramError(null);
-    setIsConnectingTelegram(true);
+    setIsConnecting(true);
 
     try {
-      // Headless Telegram auth via Dynamic hook.
-      await telegramSignIn();
-      router.push('/lobby');
+      if (isTelegramMiniApp()) {
+        await telegramSignIn({ forceCreateUser: true });
+        router.push('/lobby');
+      } else {
+        setShowAuthFlow(true);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Telegram connection failed';
       setTelegramError(message);
     } finally {
-      setIsConnectingTelegram(false);
+      setIsConnecting(false);
     }
   };
 
@@ -74,13 +81,13 @@ export default function LoginPage() {
               <div className="space-y-4">
                 <button className="w-full group relative flex items-center justify-center gap-4 bg-telegram-blue hover:bg-[#208aba] text-white font-headline font-bold py-5 rounded-xl transition-all active:scale-[0.98] shadow-[0_0_40px_rgba(36,161,222,0.25)] overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed"
                   onClick={handleConnectTelegram}
-                  disabled={isConnectingTelegram}
+                  disabled={isConnecting}
                 >
                   <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M11.944 0C5.346 0 0 5.346 0 11.944c0 6.598 5.346 11.944 11.944 11.944 6.598 0 11.944-5.346 11.944-11.944C23.888 5.346 18.542 0 11.944 0zm5.206 8.358l-1.84 8.672c-.14.62-.507.774-1.026.484l-2.804-2.068-1.352 1.3c-.15.15-.274.274-.563.274l.2-2.844 5.176-4.675c.225-.2-.049-.311-.349-.111l-6.398 4.027-2.757-.862c-.6-.188-.612-.6.126-.887l10.774-4.15c.5-.188.937.112.713.842z"></path>
                   </svg>
-                  <span className="tracking-wider text-base sm:text-lg">{telegramButtonText}</span>
+                  <span className="tracking-wider text-base sm:text-lg">{isConnecting ? 'CONNECTING...' : 'CONNECT WITH TELEGRAM'}</span>
                   <div className="absolute inset-0 rounded-xl border border-white/20 pointer-events-none"></div>
                 </button>
                 {telegramError ? (

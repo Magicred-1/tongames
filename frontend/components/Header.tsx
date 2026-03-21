@@ -1,51 +1,49 @@
 "use client";
 
-import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useDynamicContext, useTelegramLogin } from '@dynamic-labs/sdk-react-core';
+import { useCallback } from 'react';
+
+type TelegramWebApp = { initData?: string };
+type TelegramAwareWindow = Window & { Telegram?: { WebApp?: TelegramWebApp } };
+
+function isTelegramMiniApp(): boolean {
+  if (globalThis.window === undefined) return false;
+  return Boolean((globalThis.window as TelegramAwareWindow).Telegram?.WebApp?.initData);
+}
 
 export default function Header() {
   const pathname = usePathname();
-  const { setShowAuthFlow, handleLogOut, user } = useDynamicContext();
+  const { setShowAuthFlow, user, handleLogOut } = useDynamicContext();
+  const { telegramSignIn } = useTelegramLogin();
 
-  const handleConnect = () => {
+  const handleConnect = useCallback(async () => {
     if (user) {
-      handleLogOut();
+      await handleLogOut();
+    } else if (isTelegramMiniApp()) {
+      await telegramSignIn({ forceCreateUser: true });
     } else {
       setShowAuthFlow(true);
     }
-  };
+  }, [user, handleLogOut, telegramSignIn, setShowAuthFlow]);
 
-  const truncateAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const primaryWallet = user?.verifiedCredentials.find(
-    (credential) => credential.format === 'blockchain'
+  const telegramCred = user?.verifiedCredentials.find(
+    (c) => c.format === 'oauth' && c.oauthProvider === 'telegram'
   );
 
-  const userProfile = user as {
-    username?: string;
-    alias?: string;
-    email?: string;
-    profilePictureUrl?: string;
-    avatar?: string;
-    picture?: string;
-  } | null;
+  const blockchainCred = user?.verifiedCredentials.find(
+    (c) => c.format === 'blockchain'
+  );
 
-  const avatarUrl =
-    userProfile?.profilePictureUrl ||
-    userProfile?.avatar ||
-    userProfile?.picture ||
-    null;
+  const avatarUrl = telegramCred?.oauthAccountPhotos?.[0] ?? null;
 
   const displayName =
-    userProfile?.username ||
-    userProfile?.alias ||
-    (userProfile?.email ? userProfile.email.split('@')[0] : null) ||
-    (primaryWallet?.address ? truncateAddress(primaryWallet.address) : null) ||
+    telegramCred?.oauthUsername ||
+    (blockchainCred?.address
+      ? `${blockchainCred.address.slice(0, 6)}...${blockchainCred.address.slice(-4)}`
+      : null) ||
     'Connected';
 
   const initial = displayName.charAt(0).toUpperCase();

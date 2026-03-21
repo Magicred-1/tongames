@@ -116,3 +116,40 @@ body {
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
+
+@keyframes dice-roll {
+  0% {
+    transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1);
+  }
+  25% {
+    transform: rotateX(360deg) rotateY(180deg) rotateZ(180deg) scale(1.05);
+  }
+  50% {
+    transform: rotateX(720deg) rotateY(360deg) rotateZ(360deg) scale(1);
+  }
+  75% {
+    transform: rotateX(1080deg) rotateY(540deg) rotateZ(180deg) scale(1.05);
+  }
+  100% {
+    transform: rotateX(1440deg) rotateY(720deg) rotateZ(360deg) scale(1);
+  }
+}
+
+@keyframes dice-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-8px);
+  }
+  50% {
+    transform: translateY(0);
+  }
+  75% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-dice-roll {
+  animation: dice-roll 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
