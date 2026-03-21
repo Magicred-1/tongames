@@ -293,13 +293,6 @@ function LobbyPageContent() {
                 </div>
               </div>
               <div className="hidden lg:block h-12 w-[2px] bg-outline-variant/20"></div>
-              <div className="flex items-center gap-4">
-                <span className="material-symbols-outlined text-primary text-4xl">schedule</span>
-                <div className="text-left">
-                  <p className="font-robotomono text-xs uppercase text-outline">Sync Endpoint</p>
-                  <p className="font-bold text-xs sm:text-sm max-w-[220px] truncate">{state.wsUrl ?? 'N/A'}</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
