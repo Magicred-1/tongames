@@ -5,7 +5,7 @@ import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname  = dirname(__filename);
 dotenv.config({ path: resolve(__dirname, '.env') });
 
 const BOT_TOKEN = process.env.BOT_TOKEN || (() => {
@@ -15,12 +15,12 @@ const BOT_TOKEN = process.env.BOT_TOKEN || (() => {
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// Global error handler — prevents crashes on unhandled update errors
+// Global error handler
 bot.catch((err, ctx) => {
   console.error(`Error for update ${ctx.updateType}:`, err);
 });
 
-// Handle /start command
+// /start command
 bot.start(async (ctx) => {
   await ctx.reply('Welcome! Tap the button below to open the app.', {
     reply_markup: {
@@ -31,39 +31,32 @@ bot.start(async (ctx) => {
   });
 });
 
-// Handle data sent back from the Mini App (web_app_data)
+// Mini App data
 bot.on(message('web_app_data'), async (ctx) => {
   const data = ctx.message.web_app_data.data;
   console.log('Received Mini App data:', data);
   await ctx.reply(`Received from app: ${data}`);
 });
 
-async function startBot() {
-  // Always clear any existing webhook before starting long polling
-  await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+// ── Setup (one-time async tasks before polling starts) ────────────────────────
+await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+console.log('Webhook cleared.');
 
-  await bot.telegram.setChatMenuButton({
-    menu_button: {
-      type: 'web_app',
-      text: 'Open App',
-      web_app: { url: 'https://tongames.vercel.app/' },
-    },
-  });
+await bot.telegram.setChatMenuButton({
+  menu_button: {
+    type:    'web_app',
+    text:    'Open App',
+    web_app: { url: 'https://tongames.vercel.app/' },
+  },
+});
+console.log('Menu button set.');
 
-  // Only listen for the update types you actually need
-  await bot.launch({
-    allowedUpdates: ['message', 'callback_query', 'inline_query'],
-  });
+// ── Launch (do NOT await — long polling runs forever) ─────────────────────────
+bot.launch({
+  allowedUpdates: ['message', 'callback_query', 'inline_query'],
+});
 
-  console.log('Telegram bot is running.');
-}
+console.log('✅ Telegram bot is running.');
 
-try {
-  await startBot();
-} catch (error) {
-  console.error('Failed to start Telegram bot:', error);
-  process.exit(1);
-}
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGINT',  () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));

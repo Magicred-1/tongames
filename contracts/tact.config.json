@@ -1,0 +1,22 @@
+{
+  "projects": [
+    {
+      "name": "GameContract",
+      "path": "./GameContract.tact",
+      "output": "./build/GameContract",
+      "options": {
+        "debug": false,
+        "masterchain": false
+      }
+    },
+    {
+      "name": "EscrowContract",
+      "path": "./EscrowContract.tact",
+      "output": "./build/EscrowContract",
+      "options": {
+        "debug": false,
+        "masterchain": false
+      }
+    }
+  ]
+}

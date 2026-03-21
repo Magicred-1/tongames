@@ -66,13 +66,6 @@ export default function LoginPage() {
             <div className="w-16 h-16 border-b-2 border-l-2 border-secondary/40"></div>
           </div>
           <div className="relative z-10 space-y-10">
-            <header className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="font-headline text-3xl font-bold text-white tracking-tight">INITIALIZE ACCESS</h2>
-                <span className="font-robotomono text-[10px] text-primary/60">SYS_V.04.1</span>
-              </div>
-              <div className="h-1 w-16 bg-primary-container rounded-full"></div>
-            </header>
             
             {/* Input Section */}
             <div className="space-y-8">
@@ -95,25 +88,12 @@ export default function LoginPage() {
                     {telegramError}
                   </p>
                 ) : null}
-                <div className="flex items-center justify-between px-2">
-                  <span className="h-[1px] flex-1 bg-outline-variant/20"></span>
-                  <span className="px-6 font-robotomono text-[10px] text-outline/50 uppercase tracking-widest">Secured Gateway</span>
-                  <span className="h-[1px] flex-1 bg-outline-variant/20"></span>
-                </div>
               </div>
             </div>
         </div>
         </div>
 
         {/* Transactional Status Display */}
-        <div className="mt-8 grid grid-cols-2 gap-4 px-2">
-          <div className="bg-surface-container-low/40 p-5 rounded-xl border border-outline-variant/10 backdrop-blur-sm">
-            <div className="text-[10px] text-outline/60 font-robotomono uppercase mb-2 tracking-widest">Network Load</div>
-            <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
-              <div className="h-full w-2/3 bg-primary-container shadow-[0_0_10px_rgba(99,138,255,0.5)]"></div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="fixed bottom-12 right-12 flex gap-10 items-center hidden lg:flex">
