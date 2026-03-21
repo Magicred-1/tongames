@@ -121,7 +121,8 @@ function LobbyPageContent() {
     const hasInitData = Boolean(w.Telegram?.WebApp?.initData);
     const fromSessionFlag = w.sessionStorage.getItem('dynamicTelegramAuth') === '1';
     const fromQueryFlag = searchParams.get('telegram') === '1';
-    return hasInitData || fromSessionFlag || fromQueryFlag;
+    const fromAuthToken = searchParams.has('telegramAuthToken');
+    return hasInitData || fromSessionFlag || fromQueryFlag || fromAuthToken;
   }, [searchParams]);
 
   const syncStatusLabel = SYNC_LABELS[state.syncStatus];
