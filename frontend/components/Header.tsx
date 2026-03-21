@@ -11,7 +11,12 @@ type TelegramAwareWindow = Window & { Telegram?: { WebApp?: TelegramWebApp } };
 
 function isTelegramMiniApp(): boolean {
   if (globalThis.window === undefined) return false;
-  return Boolean((globalThis.window as TelegramAwareWindow).Telegram?.WebApp?.initData);
+  const w = globalThis.window as TelegramAwareWindow;
+  return (
+    Boolean(w.Telegram?.WebApp?.initData) ||
+    sessionStorage.getItem('dynamicTelegramAuth') === '1' ||
+    new URLSearchParams(globalThis.window.location.search).has('telegramAuthToken')
+  );
 }
 
 export default function Header() {
@@ -23,7 +28,10 @@ export default function Header() {
     if (user) {
       await handleLogOut();
     } else if (isTelegramMiniApp()) {
-      await telegramSignIn({ forceCreateUser: true });
+      const authToken = sessionStorage.getItem('telegramAuthToken') ??
+        new URLSearchParams(globalThis.window.location.search).get('telegramAuthToken') ??
+        undefined;
+      await telegramSignIn({ forceCreateUser: true, authToken });
     } else {
       setShowAuthFlow(true);
     }

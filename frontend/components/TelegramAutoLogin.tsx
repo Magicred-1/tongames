@@ -37,17 +37,25 @@ export function TelegramAutoLogin() {
 
   useEffect(() => {
     const twa = (globalThis as unknown as TelegramWindow).Telegram?.WebApp;
+    const urlToken = getTelegramAuthTokenFromUrl();
 
-    // Not inside a Telegram Mini App — nothing to do.
-    if (!twa?.initData) return;
+    // Detect TMA: Telegram SDK present, auth token in URL, or session flag set.
+    // Don't rely solely on initData — the SDK script may load after React hydration.
+    const isTMA =
+      Boolean(twa?.initData) ||
+      Boolean(urlToken) ||
+      sessionStorage.getItem("dynamicTelegramAuth") === "1";
+
+    if (!isTMA) return;
 
     // Signal Telegram that the app has fully loaded (removes native spinner).
-    twa.ready?.();
+    twa?.ready?.();
     // Force the viewport to full-screen height.
-    twa.expand?.();
+    twa?.expand?.();
 
-    // Remember TMA context across page navigations within the session.
+    // Persist TMA context and token so subsequent navigations can still use them.
     sessionStorage.setItem("dynamicTelegramAuth", "1");
+    if (urlToken) sessionStorage.setItem("telegramAuthToken", urlToken);
 
     // Already authenticated — skip sign-in.
     if (user) return;
@@ -55,12 +63,10 @@ export function TelegramAutoLogin() {
     // Wait for Dynamic SDK to finish initialising before calling auth.
     if (!sdkHasLoaded) return;
 
-    // Read the JWT the bot injected into the URL (?telegramAuthToken=…).
-    const authToken = getTelegramAuthTokenFromUrl();
+    // Prefer the URL token; fall back to the one stored in sessionStorage.
+    const authToken = urlToken ?? sessionStorage.getItem("telegramAuthToken");
     if (!authToken) {
-      // Token is missing — user probably opened via the persistent menu button
-      // instead of the /start command. They'll need to tap "Connect Wallet".
-      console.warn("[TMA] No telegramAuthToken in URL — skipping auto sign-in.");
+      console.warn("[TMA] No telegramAuthToken available — skipping auto sign-in.");
       return;
     }
 
