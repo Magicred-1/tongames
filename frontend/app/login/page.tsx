@@ -5,25 +5,25 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useTelegramLogin } from '@dynamic-labs/sdk-react-core';
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        initData?: string;
-        initDataUnsafe?: {
-          start_param?: string;
-        };
-      };
-    };
-  }
-}
+type TelegramWebAppData = {
+  initData?: string;
+  initDataUnsafe?: {
+    start_param?: string;
+  };
+};
+
+type TelegramAwareWindow = Window & {
+  Telegram?: {
+    WebApp?: TelegramWebAppData;
+  };
+};
 
 function getTelegramAuthToken(): string | undefined {
   if (globalThis.window === undefined) {
     return undefined;
   }
 
-  const w = globalThis.window;
+  const w = globalThis.window as TelegramAwareWindow;
 
   const fromQuery = new URLSearchParams(w.location.search).get('telegramAuthToken');
   if (fromQuery) return fromQuery;
@@ -77,6 +77,7 @@ export default function LoginPage() {
 
       // Headless Telegram auth via Dynamic hook.
       await telegramSignIn({ authToken: telegramAuthToken });
+      globalThis.window.sessionStorage.setItem('dynamicTelegramAuth', '1');
       router.push('/lobby');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Telegram connection failed';
@@ -87,7 +88,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="relative z-10 w-full max-w-7xl mx-auto px-8 flex flex-col lg:flex-row items-center justify-center gap-12 xl:gap-24 min-h-screen py-12">
+    <main className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center justify-center gap-8 sm:gap-12 xl:gap-24 min-h-screen py-8 sm:py-12">
       {/* Hero Backdrop Logic */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-1/4 -left-20 w-[600px] h-[600px] bg-primary-container/10 blur-[150px] rounded-full"></div>
@@ -95,14 +96,14 @@ export default function LoginPage() {
       </div>
 
       {/* Left Side: Branding & World Building */}
-      <div className="flex-1 text-left space-y-10 lg:pr-12 max-w-xl relative z-10">
+      <div className="flex-1 text-center lg:text-left space-y-8 sm:space-y-10 lg:pr-12 max-w-xl relative z-10">
         <div className="space-y-4">
-          <h1 className="font-headline font-black text-6xl md:text-7xl xl:text-8xl text-white italic tracking-tighter leading-[0.9]">
+          <h1 className="font-headline font-black text-4xl sm:text-6xl md:text-7xl xl:text-8xl text-white italic tracking-tighter leading-[0.9]">
             <span className="text-white">TON</span>
             <div className="text-primary-container">GAMES</div>
           </h1>
         </div>
-        <p className="text-on-surface-variant text-lg xl:text-xl max-w-xl font-light leading-relaxed">
+        <p className="text-on-surface-variant text-base sm:text-lg xl:text-xl max-w-xl font-light leading-relaxed">
           Enter the void. Forge your legacy on the TON network. A high-stakes decentralized arena where strategy meets the speed of light.
         </p>
         <div className="flex items-center gap-6 pt-2">
@@ -138,7 +139,7 @@ export default function LoginPage() {
 
       {/* Right Side: Login Terminal */}
       <div className="w-full max-w-lg relative z-10">
-        <div className="glass-panel p-8 md:p-12 rounded-2xl relative overflow-hidden shadow-2xl">
+        <div className="glass-panel p-5 sm:p-8 md:p-12 rounded-2xl relative overflow-hidden shadow-2xl">
           {/* Decorative Hud Elements */}
           <div className="absolute top-0 right-0 p-6 opacity-30">
             <div className="w-16 h-16 border-t-2 border-r-2 border-primary-container/40"></div>
@@ -149,7 +150,7 @@ export default function LoginPage() {
           <div className="relative z-10 space-y-10">
             <header className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="font-headline text-3xl font-bold text-white tracking-tight">INITIALIZE ACCESS</h2>
+                <h2 className="font-headline text-2xl sm:text-3xl font-bold text-white tracking-tight">INITIALIZE ACCESS</h2>
                 <span className="font-robotomono text-[10px] text-primary/60">SYS_V.04.1</span>
               </div>
               <div className="h-1 w-16 bg-primary-container rounded-full"></div>
@@ -182,7 +183,7 @@ export default function LoginPage() {
                   <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M11.944 0C5.346 0 0 5.346 0 11.944c0 6.598 5.346 11.944 11.944 11.944 6.598 0 11.944-5.346 11.944-11.944C23.888 5.346 18.542 0 11.944 0zm5.206 8.358l-1.84 8.672c-.14.62-.507.774-1.026.484l-2.804-2.068-1.352 1.3c-.15.15-.274.274-.563.274l.2-2.844 5.176-4.675c.225-.2-.049-.311-.349-.111l-6.398 4.027-2.757-.862c-.6-.188-.612-.6.126-.887l10.774-4.15c.5-.188.937.112.713.842z"></path>
                   </svg>
-                  <span className="tracking-wider text-lg">{telegramButtonText}</span>
+                  <span className="tracking-wider text-base sm:text-lg">{telegramButtonText}</span>
                   <div className="absolute inset-0 rounded-xl border border-white/20 pointer-events-none"></div>
                 </button>
                 {telegramError ? (
@@ -213,7 +214,7 @@ export default function LoginPage() {
         </div>
 
         {/* Transactional Status Display */}
-        <div className="mt-8 grid grid-cols-2 gap-4 px-2">
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 px-0 sm:px-2">
           <div className="bg-surface-container-low/40 p-5 rounded-xl border border-outline-variant/10 backdrop-blur-sm">
             <div className="text-[10px] text-outline/60 font-robotomono uppercase mb-2 tracking-widest">Network Load</div>
             <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">

@@ -10,26 +10,26 @@ export default function ArenaPage() {
       <Header />
 
       {/* Main Content Canvas */}
-      <main className="pt-24 pb-32 px-6 min-h-screen flex flex-col gap-8 max-w-[1600px] mx-auto relative z-10">
+      <main className="pt-20 sm:pt-24 pb-24 sm:pb-32 px-4 sm:px-6 min-h-screen flex flex-col gap-6 sm:gap-8 max-w-[1600px] mx-auto relative z-10">
         {/* Arena Header: Prize Pool & Global Stats */}
-        <div className="flex justify-between items-end">
+        <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-4 lg:gap-6">
           <div className="flex flex-col">
-            <span className="font-label text-secondary uppercase tracking-[0.3em] text-sm">Active Arena Session</span>
-            <h1 className="font-headline font-black text-5xl italic text-white uppercase tracking-tighter">FATAL FOUR-WAY #502</h1>
+            <span className="font-label text-secondary uppercase tracking-[0.2em] sm:tracking-[0.3em] text-xs sm:text-sm">Active Arena Session</span>
+            <h1 className="font-headline font-black text-3xl sm:text-4xl lg:text-5xl italic text-white uppercase tracking-tighter">FATAL FOUR-WAY #502</h1>
           </div>
           {/* Prize Pool Display */}
-          <div className="glass-panel p-6 rounded-xl flex flex-col items-center min-w-[320px] relative overflow-hidden">
+          <div className="glass-panel p-4 sm:p-6 rounded-xl flex flex-col items-center w-full lg:w-auto lg:min-w-[320px] relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent"></div>
             <span className="font-label text-outline uppercase text-xs tracking-widest mb-1 relative z-10">Total Prize Pool</span>
             <div className="flex items-baseline gap-2 relative z-10">
-              <span className="font-headline font-black text-4xl text-secondary">88,400</span>
+              <span className="font-headline font-black text-3xl sm:text-4xl text-secondary">88,400</span>
               <span className="font-robotomono text-primary font-bold">TON</span>
             </div>
           </div>
         </div>
 
         {/* Combat Grid: 4 Player Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-auto lg:h-[650px]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 h-auto lg:h-[650px]">
           {/* Left Wing: Combat Log */}
           <div className="lg:col-span-3 flex flex-col gap-4">
             <h3 className="font-headline font-bold uppercase text-outline text-sm tracking-widest flex items-center gap-2">
@@ -51,13 +51,13 @@ export default function ArenaPage() {
           </div>
 
           {/* Central Arena Area: 2x2 Grid of Players */}
-          <div className="lg:col-span-6 relative glass-panel rounded-3xl overflow-hidden border-2 border-primary-container/10 p-8">
+          <div className="lg:col-span-6 relative glass-panel rounded-3xl overflow-hidden border-2 border-primary-container/10 p-4 sm:p-6 lg:p-8">
             {/* Background Environment */}
             <div className="absolute inset-0 opacity-10 pointer-events-none">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary rounded-full blur-[120px] opacity-20"></div>
             </div>
             {/* 4 Player Grid */}
-            <div className="grid grid-cols-2 grid-rows-2 gap-8 h-full relative z-20">
+            <div className="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-6 lg:gap-8 h-full relative z-20">
               {/* Player 1: Top Left */}
               <div className="flex flex-col items-center justify-center gap-4 group p-4 rounded-2xl transition-all hover:bg-white/5 border border-transparent hover:border-white/10">
                 <div className="flex gap-1 mb-1">
@@ -66,7 +66,7 @@ export default function ArenaPage() {
                   <div className="hp-segment bg-surface-container-highest"></div>
                 </div>
                 <div className="relative">
-                  <Image src="/assets/arena_particle.webp" alt="NexusNode" width={128} height={128} className="w-32 h-32 object-contain drop-shadow-[0_0_15px_rgba(99,138,255,0.4)]" />
+                  <Image src="/assets/arena_particle.webp" alt="NexusNode" width={128} height={128} className="w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 object-contain drop-shadow-[0_0_15px_rgba(99,138,255,0.4)]" />
                   <div className="absolute -top-2 -right-2 w-10 h-10 bg-surface-container-highest border-2 border-secondary rounded-lg flex items-center justify-center font-headline font-black text-secondary">12</div>
                 </div>
                 <div className="text-center">
@@ -82,7 +82,7 @@ export default function ArenaPage() {
                   <div className="hp-segment bg-surface-container-highest"></div>
                 </div>
                 <div className="relative">
-                  <Image src="/assets/arena_overlay.webp" alt="VoidWalker" width={128} height={128} className="w-32 h-32 object-contain drop-shadow-[0_0_15px_rgba(255,87,26,0.4)]" />
+                  <Image src="/assets/arena_overlay.webp" alt="VoidWalker" width={128} height={128} className="w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 object-contain drop-shadow-[0_0_15px_rgba(255,87,26,0.4)]" />
                   <div className="absolute -top-2 -right-2 w-10 h-10 bg-surface-container-highest border-2 border-primary-container rounded-lg flex items-center justify-center font-headline font-black text-primary-container">08</div>
                 </div>
                 <div className="text-center">
@@ -98,7 +98,7 @@ export default function ArenaPage() {
                   <div className="hp-segment bg-secondary shadow-[0_0_8px_rgba(125,255,162,0.6)]"></div>
                 </div>
                 <div className="relative">
-                  <Image src="/assets/arena_bg.webp" alt="CyberViper" width={128} height={128} className="w-32 h-32 object-contain grayscale group-hover:grayscale-0 transition-all drop-shadow-[0_0_15px_rgba(125,255,162,0.3)]" />
+                  <Image src="/assets/arena_bg.webp" alt="CyberViper" width={128} height={128} className="w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 object-contain grayscale group-hover:grayscale-0 transition-all drop-shadow-[0_0_15px_rgba(125,255,162,0.3)]" />
                   <div className="absolute -top-2 -right-2 w-10 h-10 bg-surface-container-highest border-2 border-secondary rounded-lg flex items-center justify-center font-headline font-black text-secondary">20</div>
                 </div>
                 <div className="text-center">
@@ -114,7 +114,7 @@ export default function ArenaPage() {
                   <div className="hp-segment bg-surface-container-highest"></div>
                 </div>
                 <div className="relative">
-                  <div className="w-32 h-32 bg-surface-container-high rounded-full flex items-center justify-center border border-white/5">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 bg-surface-container-high rounded-full flex items-center justify-center border border-white/5">
                     <span className="material-symbols-outlined text-4xl text-outline/30">person</span>
                   </div>
                   <div className="absolute -top-2 -right-2 w-10 h-10 bg-surface-container-highest border-2 border-outline rounded-lg flex items-center justify-center font-headline font-black text-outline">--</div>
@@ -127,7 +127,7 @@ export default function ArenaPage() {
             </div>
             {/* Center Banner */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
-              <div className="px-8 py-3 bg-secondary text-on-secondary rounded-full font-headline font-black uppercase tracking-[0.2em] text-sm shadow-[0_0_40px_rgba(125,255,162,0.4)] whitespace-nowrap">
+              <div className="px-4 sm:px-8 py-2 sm:py-3 bg-secondary text-on-secondary rounded-full font-headline font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] text-[10px] sm:text-sm shadow-[0_0_40px_rgba(125,255,162,0.4)] whitespace-nowrap">
                 NexusNode Wins Turn!
               </div>
             </div>
@@ -232,7 +232,7 @@ export default function ArenaPage() {
       </main>
 
       {/* BottomNavBar */}
-      <footer className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-surface-container-lowest/90 backdrop-blur-xl border-t border-outline-variant/15 shadow-[0_-8px_32px_rgba(1,9,52,0.5)] md:hidden">
+      <footer className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 sm:px-4 pb-4 sm:pb-6 pt-2 bg-surface-container-lowest/90 backdrop-blur-xl border-t border-outline-variant/15 shadow-[0_-8px_32px_rgba(1,9,52,0.5)] md:hidden">
         <a className="flex flex-col items-center justify-center text-outline px-6 py-2 hover:text-white hover:bg-surface-variant/30 transition-transform active:scale-90" href="#">
           <span className="material-symbols-outlined mb-1">swords</span>
           <span className="font-robotomono text-[10px] uppercase tracking-tighter">Battle</span>

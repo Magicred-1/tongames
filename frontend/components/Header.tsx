@@ -56,8 +56,8 @@ export default function Header() {
   ];
 
   return (
-    <header className="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-20 bg-surface shadow-[0_0_24px_rgba(65,117,255,0.08)] backdrop-blur-md border-b border-outline-variant/10">
-      <Link href="/" className="text-2xl font-black text-white italic tracking-tighter uppercase font-headline hover:scale-105 transition-transform">
+    <header className="fixed top-0 w-full z-50 flex justify-between items-center px-3 sm:px-5 lg:px-8 h-16 sm:h-20 bg-surface shadow-[0_0_24px_rgba(65,117,255,0.08)] backdrop-blur-md border-b border-outline-variant/10">
+      <Link href="/" className="text-lg sm:text-xl lg:text-2xl font-black text-white italic tracking-tighter uppercase font-headline hover:scale-105 transition-transform">
         TON Games
       </Link>
 
@@ -79,17 +79,17 @@ export default function Header() {
         })}
       </nav>
 
-      <div className="flex items-center gap-6">
-        <div className="flex gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 lg:gap-6">
+        <div className="hidden sm:flex gap-3 lg:gap-4">
           <span className="material-symbols-outlined text-outline cursor-pointer hover:text-white transition-all active:scale-95">settings</span>
           <span className="material-symbols-outlined text-outline cursor-pointer hover:text-white transition-all active:scale-95">help</span>
         </div>
-        <button className="bg-primary-container text-on-primary-container px-4 py-2 rounded-lg font-headline font-bold tracking-wider shadow-[0_0_20px_rgba(99,138,255,0.4)] hover:shadow-[0_0_30px_rgba(99,138,255,0.6)] active:scale-95 transition-all"
+        <button className="bg-primary-container text-on-primary-container px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-headline font-bold tracking-wider shadow-[0_0_20px_rgba(99,138,255,0.4)] hover:shadow-[0_0_30px_rgba(99,138,255,0.6)] active:scale-95 transition-all"
           onClick={handleConnect}
           title={user ? 'Log out' : 'Connect wallet'}
         >
           {user ? (
-            <span className="flex items-center gap-2 max-w-[220px]">
+            <span className="flex items-center gap-2 max-w-[140px] sm:max-w-[220px]">
               {avatarUrl ? (
                 <Image
                   src={avatarUrl}
@@ -103,7 +103,7 @@ export default function Header() {
                   {initial}
                 </span>
               )}
-              <span className="truncate max-w-[180px]">{displayName}</span>
+              <span className="truncate max-w-[110px] sm:max-w-[180px]">{displayName}</span>
             </span>
           ) : (
             'Connect Wallet'

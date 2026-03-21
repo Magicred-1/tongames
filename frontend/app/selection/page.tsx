@@ -9,26 +9,26 @@ export default function SelectionPage() {
       <div className="bg-surface-container-low h-[2px] w-full fixed top-20 z-50"></div>
 
       {/* Main Content Canvas */}
-      <main className="pt-32 pb-40 px-6 max-w-7xl mx-auto min-h-screen relative z-10">
+      <main className="pt-24 sm:pt-28 lg:pt-32 pb-24 sm:pb-32 lg:pb-40 px-4 sm:px-6 max-w-7xl mx-auto min-h-screen relative z-10">
         {/* Header Section */}
-        <div className="mb-16 flex flex-col md:flex-row md:items-end justify-between gap-8">
+        <div className="mb-10 sm:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-6 sm:gap-8">
           <div className="space-y-2">
             <div className="flex items-center space-x-3 text-secondary">
               <span className="h-2 w-2 rounded-full bg-secondary animate-pulse"></span>
               <span className="font-robotomono text-xs uppercase tracking-[0.2em]">Live Arena Pre-Match</span>
             </div>
-            <h1 className="text-5xl md:text-7xl font-black font-headline uppercase tracking-tighter italic">Finalize Entry</h1>
-            <p className="text-outline text-lg max-w-xl font-light">Select your combatant class and commit your stakes to the smart contract. Once the duel begins, there is no turning back.</p>
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black font-headline uppercase tracking-tighter italic">Finalize Entry</h1>
+            <p className="text-outline text-base sm:text-lg max-w-xl font-light">Select your combatant class and commit your stakes to the smart contract. Once the duel begins, there is no turning back.</p>
           </div>
-          <div className="glass-panel p-6 rounded-2xl border border-outline-variant/20 flex items-center space-x-6">
+          <div className="glass-panel p-4 sm:p-6 rounded-2xl border border-outline-variant/20 flex items-center space-x-4 sm:space-x-6 w-full md:w-auto justify-between">
             <div className="text-right">
               <p className="text-outline text-[10px] uppercase tracking-widest mb-1">Current Pot</p>
-              <p className="text-3xl font-black font-headline text-white">2,500 TON</p>
+              <p className="text-2xl sm:text-3xl font-black font-headline text-white">2,500 TON</p>
             </div>
             <div className="h-12 w-[1px] bg-outline-variant/30"></div>
             <div className="text-right">
               <p className="text-outline text-[10px] uppercase tracking-widest mb-1">Players Ready</p>
-              <p className="text-3xl font-black font-headline text-secondary">7/8</p>
+              <p className="text-2xl sm:text-3xl font-black font-headline text-secondary">7/8</p>
             </div>
           </div>
         </div>
@@ -36,9 +36,9 @@ export default function SelectionPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Character Selection */}
           <div className="lg:col-span-8 space-y-8">
-            <div className="flex items-center justify-between">
-              <h2 className="font-headline text-2xl font-bold uppercase tracking-widest border-l-4 border-primary-container pl-4">Choose Your Class</h2>
-              <span className="text-outline font-robotomono text-xs">ENCOUNTER_ID: 0x82...f92</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+              <h2 className="font-headline text-xl sm:text-2xl font-bold uppercase tracking-widest border-l-4 border-primary-container pl-4">Choose Your Class</h2>
+              <span className="text-outline font-robotomono text-[10px] sm:text-xs">ENCOUNTER_ID: 0x82...f92</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full">
               {/* Titan Card */}
@@ -46,7 +46,7 @@ export default function SelectionPage() {
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
                   <span className="material-symbols-outlined text-8xl">shield</span>
                 </div>
-                <div className="p-8 space-y-6 flex flex-col h-full">
+                <div className="p-5 sm:p-6 lg:p-8 space-y-6 flex flex-col h-full">
                   <div>
                     <h3 className="text-3xl font-black font-headline italic tracking-tighter text-white mb-2">TITAN</h3>
                     <p className="text-xs font-robotomono text-primary uppercase">Front-Line Vanguard</p>
@@ -84,7 +84,7 @@ export default function SelectionPage() {
                 <div className="absolute top-0 right-0 p-4 opacity-20">
                   <span className="material-symbols-outlined text-8xl text-primary">visibility_off</span>
                 </div>
-                <div className="p-8 space-y-6 flex flex-col h-full">
+                <div className="p-5 sm:p-6 lg:p-8 space-y-6 flex flex-col h-full">
                   <div>
                     <h3 className="text-3xl font-black font-headline italic tracking-tighter text-white mb-2">SHADOW</h3>
                     <p className="text-xs font-robotomono text-secondary uppercase">Precision Infiltrator</p>
@@ -121,7 +121,7 @@ export default function SelectionPage() {
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
                   <span className="material-symbols-outlined text-8xl">auto_fix_high</span>
                 </div>
-                <div className="p-8 space-y-6 flex flex-col h-full">
+                <div className="p-5 sm:p-6 lg:p-8 space-y-6 flex flex-col h-full">
                   <div>
                     <h3 className="text-3xl font-black font-headline italic tracking-tighter text-white mb-2">SPELLWEAVER</h3>
                     <p className="text-xs font-robotomono text-primary uppercase">Arcane Tactician</p>
@@ -157,7 +157,7 @@ export default function SelectionPage() {
 
           {/* Betting Interface */}
           <div className="lg:col-span-4 space-y-8">
-            <div className="glass-panel p-8 rounded-2xl border border-outline-variant/20 space-y-8">
+            <div className="glass-panel p-5 sm:p-8 rounded-2xl border border-outline-variant/20 space-y-6 sm:space-y-8">
               <h2 className="font-headline text-2xl font-bold uppercase tracking-widest text-white">The Stake</h2>
               <div className="space-y-6">
                 <div className="space-y-2">
@@ -179,7 +179,7 @@ export default function SelectionPage() {
                     <span className="text-[10px] font-robotomono text-primary">Balance: 420.69 TON</span>
                   </div>
                   <div className="relative group">
-                    <input className="w-full bg-surface-container-lowest border-none focus:ring-2 ring-primary-container text-white text-3xl font-black font-headline p-5 rounded-xl transition-all outline-none" placeholder="0.00" type="number" />
+                    <input className="w-full bg-surface-container-lowest border-none focus:ring-2 ring-primary-container text-white text-2xl sm:text-3xl font-black font-headline p-4 sm:p-5 rounded-xl transition-all outline-none" placeholder="0.00" type="number" />
                     <div className="absolute right-5 top-1/2 -translate-y-1/2 flex items-center space-x-2">
                       <button className="px-2 py-1 bg-surface-container-highest rounded text-[10px] font-bold text-outline hover:text-white">MAX</button>
                     </div>
@@ -193,7 +193,7 @@ export default function SelectionPage() {
                 </div>
                 <p className="text-[11px] leading-relaxed text-on-surface/60 font-body">Once committed, funds are locked in the smart contract. Loss in battle results in total forfeit of stakes. Play responsibly.</p>
               </div>
-              <button className="w-full bg-secondary text-[#00210b] py-5 rounded-xl font-headline font-black uppercase tracking-[0.2em] text-lg glow-secondary active:scale-[0.98] transition-all transform hover:-translate-y-1">
+              <button className="w-full bg-secondary text-[#00210b] py-4 sm:py-5 rounded-xl font-headline font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-base sm:text-lg glow-secondary active:scale-[0.98] transition-all transform hover:-translate-y-1">
                 Commit Bet
               </button>
               <div className="pt-4 flex flex-col items-center space-y-4">
