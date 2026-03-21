@@ -79,30 +79,22 @@ type GameAction =
 
 // ─── URL resolution ───────────────────────────────────────────────────────────
 
-function resolveWebSocketUrl(): string | null {
-  if (typeof globalThis.window === 'undefined') return null;
+function resolveWebSocketUrl(): string {
+  // Use direct property access — Next.js DefinePlugin only replaces
+  // process.env.NEXT_PUBLIC_FOO as a full expression, not destructured vars.
+  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
 
-  const {
-    NEXT_PUBLIC_WS_URL,
-    NEXT_PUBLIC_WS_HOST,
-    NEXT_PUBLIC_WS_PORT,
-    NEXT_PUBLIC_WS_PATH,
-  } = process.env;
+  const proto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
 
-  if (NEXT_PUBLIC_WS_URL) return NEXT_PUBLIC_WS_URL;
-
-  const proto = globalThis.window.location.protocol === 'https:' ? 'wss' : 'ws';
-
-  if (NEXT_PUBLIC_WS_HOST) {
-    const port = NEXT_PUBLIC_WS_PORT ?? '4020';
-    let path = '';
-    if (NEXT_PUBLIC_WS_PATH) {
-      path = NEXT_PUBLIC_WS_PATH.startsWith('/') ? NEXT_PUBLIC_WS_PATH : `/${NEXT_PUBLIC_WS_PATH}`;
-    }
-    return `${proto}://${NEXT_PUBLIC_WS_HOST}:${port}${path}`;
+  if (process.env.NEXT_PUBLIC_WS_HOST) {
+    const port = process.env.NEXT_PUBLIC_WS_PORT ?? '4020';
+    const raw  = process.env.NEXT_PUBLIC_WS_PATH ?? '';
+    const path = raw && !raw.startsWith('/') ? `/${raw}` : raw;
+    return `${proto}://${process.env.NEXT_PUBLIC_WS_HOST}:${port}${path}`;
   }
 
-  return `${proto}://${globalThis.window.location.hostname}:4020`;
+  return `${proto}://${hostname}:4020`;
 }
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -179,7 +171,7 @@ function reducer(state: GameState, action: GameAction): GameState {
           diceMax: 10,
         }),
       };
-    case 'DICE_RESULT':
+    case 'DICE_RESULT': {
       const newDiceRolls = new Map(state.diceRolls);
       newDiceRolls.set(action.address, {
         address: action.address,
@@ -193,6 +185,7 @@ function reducer(state: GameState, action: GameAction): GameState {
           [...state.rollingPlayers].filter((p) => p !== action.address)
         ),
       };
+    }
     case 'ROUND_RESULTS':
       return { ...state, results: action.results, phase: 'RESOLVE' };
     case 'NEXT_ROUND':
@@ -257,10 +250,6 @@ export function GameSocketProvider({ children }: Readonly<{ children: React.Reac
 
   useEffect(() => {
     const url = resolveWebSocketUrl();
-    if (!url) {
-      dispatch({ type: 'WS_STATUS', status: 'offline' });
-      return;
-    }
 
     let active = true;
     const ws = new WebSocket(url);

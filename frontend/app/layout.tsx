@@ -41,11 +41,11 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-surface overflow-x-hidden">
-        <DynamicTonWrapper>
-          <GameSocketProvider>
+        <GameSocketProvider>
+          <DynamicTonWrapper>
             {children}
-          </GameSocketProvider>
-        </DynamicTonWrapper>
+          </DynamicTonWrapper>
+        </GameSocketProvider>
       </body>
     </html>
   );
