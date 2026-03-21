@@ -8,7 +8,20 @@ const nextConfig: NextConfig = {
         hostname: 't.me',
         pathname: '/i/userpic/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'api.qrserver.com',
+      },
     ],
+  },
+  webpack(config) {
+    // Prevent webpack from watching node_modules — avoids inotify watch exhaustion
+    // when large packages like @dynamic-labs/sdk-react-core ship their source tree.
+    config.watchOptions = {
+      ...config.watchOptions,
+      ignored: /node_modules/,
+    };
+    return config;
   },
 };
 

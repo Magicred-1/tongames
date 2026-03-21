@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo } from 'react';
+import { Suspense, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import Header from '@/components/Header';
 import { useSearchParams } from 'next/navigation';
@@ -8,7 +8,49 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { useGameSocket } from '@/lib/gameSocket';
 
 type TelegramWebApp = { initData?: string };
+
+type JoinButtonProps = {
+  hasJoined: boolean;
+  syncStatus: 'connecting' | 'connected' | 'offline';
+  isAuthenticated: boolean;
+  onClick: () => void;
+};
 type TelegramAwareWindow = Window & { Telegram?: { WebApp?: TelegramWebApp } };
+
+function JoinButton({ hasJoined, syncStatus, isAuthenticated, onClick }: JoinButtonProps) {
+  const isDisabled = hasJoined || syncStatus !== 'connected' || !isAuthenticated;
+
+  if (hasJoined) {
+    return (
+      <div className="flex items-center gap-3 px-8 py-4 rounded-xl bg-secondary/20 border border-secondary/40 text-secondary font-headline font-bold text-lg uppercase tracking-widest">
+        <span className="material-symbols-outlined" style={{ fontVariationSettings: '"FILL" 1' }}>check_circle</span>
+        Joined — Waiting...
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={isDisabled}
+      className="relative group px-10 py-5 rounded-xl font-headline font-black text-xl uppercase tracking-widest transition-all duration-200
+        bg-primary text-on-primary shadow-[0_0_40px_rgba(99,138,255,0.4)]
+        hover:bg-primary/90 hover:shadow-[0_0_60px_rgba(99,138,255,0.6)] hover:scale-105
+        active:scale-95
+        disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:scale-100"
+    >
+      <span className="flex items-center gap-3">
+        <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: '"FILL" 1' }}>
+          {syncStatus === 'connecting' ? 'sync' : syncStatus === 'offline' ? 'wifi_off' : 'sports_esports'}
+        </span>
+        {syncStatus === 'connecting' ? 'Connecting...' : syncStatus === 'offline' ? 'Server Offline' : 'Join Game'}
+      </span>
+      {!isDisabled && (
+        <div className="absolute inset-0 rounded-xl border-2 border-primary/50 animate-pulse pointer-events-none" />
+      )}
+    </button>
+  );
+}
 
 const SYNC_LABELS = {
   connecting: 'CONNECTING...',
@@ -28,31 +70,41 @@ function LobbyPageContent() {
   const searchParams = useSearchParams();
   const { state, send } = useGameSocket();
   const { user } = useDynamicContext();
-
-  // Announce this player to the lobby as soon as they're authenticated
-  useEffect(() => {
-    if (!user || state.syncStatus !== 'connected') return;
-
+  const playerInfo = useMemo(() => {
+    if (!user) return null;
     const telegramCred = user.verifiedCredentials.find(
       (c) => c.format === 'oauth' && c.oauthProvider === 'telegram'
     );
     const blockchainCred = user.verifiedCredentials.find(
       (c) => c.format === 'blockchain'
     );
+    return {
+      playerAddress: blockchainCred?.address ?? telegramCred?.oauthAccountId ?? user.userId,
+      displayName: telegramCred?.oauthUsername ?? undefined,
+      avatarUrl: telegramCred?.oauthAccountPhotos?.[0] ?? undefined,
+    };
+  }, [user]);
 
-    const playerAddress =
-      blockchainCred?.address ??
-      telegramCred?.oauthAccountId ??
-      user.userId;
+  const hasJoined = useMemo(
+    () => Boolean(playerInfo && state.players.some((p) => p.address === playerInfo.playerAddress)),
+    [state.players, playerInfo]
+  );
 
-    const displayName =
-      telegramCred?.oauthUsername ?? playerAddress;
+  const qrCodeUrl = useMemo(() => {
+    const target = typeof window !== 'undefined'
+      ? window.location.href
+      : 'https://tongames.vercel.app/lobby';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=256x256&margin=8&data=${encodeURIComponent(target)}`;
+  }, []);
 
-    const avatarUrl =
-      telegramCred?.oauthAccountPhotos?.[0] ?? undefined;
-
-    send('LOBBY_JOIN', { playerAddress, displayName, avatarUrl });
-  }, [user, state.syncStatus, send]);
+  const handleJoin = useCallback(() => {
+    if (!playerInfo || state.syncStatus !== 'connected') return;
+    send('LOBBY_JOIN', {
+      playerAddress: playerInfo.playerAddress,
+      displayName: playerInfo.displayName ?? playerInfo.playerAddress,
+      avatarUrl: playerInfo.avatarUrl,
+    });
+  }, [playerInfo, state.syncStatus, send]);
 
   const isTelegramWebApp = useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -106,7 +158,7 @@ function LobbyPageContent() {
               </div>
               <div className="space-y-4">
                 {state.players.map((player) => {
-                  const name = player.displayName ?? `${player.address.slice(0, 6)}...${player.address.slice(-4)}`;
+                  const name = "@" + (player.displayName ?? `${player.address.slice(0, 6)}...${player.address.slice(-4)}`);
                   const initials = name.slice(0, 2).toUpperCase();
                   return (
                     <div key={player.address} className="flex items-center justify-between p-4 bg-surface-container-highest/30 rounded-lg hover:bg-surface-container-highest/60 transition-colors">
@@ -158,11 +210,19 @@ function LobbyPageContent() {
           {/* Right Panel: QR Code (The Hero) */}
           <div className="lg:col-span-8 flex flex-col items-center justify-center text-center order-1 lg:order-2">
             {isTelegramWebApp ? (
-              <div className="w-full max-w-xl glass-panel p-6 sm:p-8 rounded-2xl">
-                <h2 className="font-headline font-black text-3xl sm:text-4xl uppercase italic tracking-tighter">Telegram Session Active</h2>
-                <p className="text-sm sm:text-base text-outline-variant mt-3 leading-relaxed">
-                  QR is hidden inside Telegram. Continue directly with your mobile flow and wait for lobby sync.
-                </p>
+              <div className="w-full max-w-xl glass-panel p-6 sm:p-8 rounded-2xl flex flex-col items-center gap-6">
+                <div className="text-center">
+                  <h2 className="font-headline font-black text-3xl sm:text-4xl uppercase italic tracking-tighter">Telegram Session Active</h2>
+                  <p className="text-sm sm:text-base text-outline-variant mt-3 leading-relaxed">
+                    Connected to the sync server. Press the button below to enter the lobby.
+                  </p>
+                </div>
+                <JoinButton
+                  hasJoined={hasJoined}
+                  syncStatus={state.syncStatus}
+                  isAuthenticated={Boolean(user)}
+                  onClick={handleJoin}
+                />
               </div>
             ) : (
               <>
@@ -176,22 +236,31 @@ function LobbyPageContent() {
                   <div className="bg-surface-container-highest p-8 rounded-2xl shadow-[0_0_80px_rgba(99,138,255,0.2)]">
                     <div className="bg-white p-3 sm:p-4 rounded-xl">
                       <Image
-                        src="/assets/lobby_preview.webp"
+                        src={qrCodeUrl}
                         alt="Join Lobby QR Code"
                         width={256}
                         height={256}
                         className="w-52 h-52 sm:w-64 sm:h-64"
+                        unoptimized
                       />
                     </div>
                   </div>
                   {/* Scan Indicator Pulsing */}
                   <div className="absolute inset-0 border-2 border-primary/30 rounded-2xl animate-pulse scale-110 pointer-events-none"></div>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <h2 className="font-headline font-black text-3xl sm:text-4xl lg:text-5xl uppercase italic tracking-tighter">Scan to Join with your Phone</h2>
                   <p className="text-base sm:text-lg lg:text-xl text-outline-variant max-w-xl mx-auto leading-relaxed">
-                    Navigate to <span className="text-primary font-bold">TONGAMES.XYZ</span>&nbsp;on your mobile browser or scan the code to initialize your warrior.
+                    Navigate to <span className="text-primary font-bold">TONGAMES.VERCEL.APP</span>&nbsp;on your mobile browser or scan the code to initialize your warrior.
                   </p>
+                  <div className="flex justify-center">
+                    <JoinButton
+                      hasJoined={hasJoined}
+                      syncStatus={state.syncStatus}
+                      isAuthenticated={Boolean(user)}
+                      onClick={handleJoin}
+                    />
+                  </div>
                 </div>
               </>
             )}

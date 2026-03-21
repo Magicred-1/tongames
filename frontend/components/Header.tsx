@@ -46,7 +46,7 @@ export default function Header() {
       : null) ||
     'Connected';
 
-  const initial = displayName.charAt(0).toUpperCase();
+  const initial = "@" + displayName.charAt(0).toUpperCase();
 
   const navLinks = [
     { name: 'Lobby', href: '/lobby' },
@@ -98,10 +98,10 @@ export default function Header() {
                 />
               ) : (
                 <span className="w-[22px] h-[22px] rounded-full border border-white/40 bg-white/20 text-[10px] flex items-center justify-center">
-                  {initial}
+                  {"@" + initial}
                 </span>
               )}
-              <span className="truncate max-w-[110px] sm:max-w-[180px]">{displayName}</span>
+              <span className="truncate max-w-[110px] sm:max-w-[180px]">{"@" + displayName}</span>
             </span>
           ) : (
             'Connect Wallet'

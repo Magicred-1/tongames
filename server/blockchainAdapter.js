@@ -68,7 +68,7 @@ export class BlockchainAdapter {
   async sendStartGame() {
     await this._send(
       this.gameContractAddr,
-      toNano("0.05"),
+      toNano("0.01"),
       buildBody(OP.START_GAME)
     );
   }
@@ -77,7 +77,7 @@ export class BlockchainAdapter {
   async sendTriggerResolve() {
     await this._send(
       this.gameContractAddr,
-      toNano("0.05"),
+      toNano("0.01"),
       buildBody(OP.TRIGGER_RESOLVE)
     );
   }
@@ -86,7 +86,7 @@ export class BlockchainAdapter {
   async sendTriggerPayout() {
     await this._send(
       this.gameContractAddr,
-      toNano("0.05"),
+      toNano("0.01"),
       buildBody(OP.TRIGGER_PAYOUT)
     );
   }

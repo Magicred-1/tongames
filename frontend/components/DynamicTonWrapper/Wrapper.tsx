@@ -13,7 +13,7 @@ export default function DynamicTonWrapper({ children }: { children: React.ReactN
         <DynamicContextProvider
             settings={{
                 environmentId: "a8444133-72f4-4930-aa71-f471279cd4a4",
-                walletConnectors: [new TonWalletConnectors()],
+                walletConnectors: [TonWalletConnectors],
                 events: {
                     onLogout: (args) => {
                         router.push("/login");
