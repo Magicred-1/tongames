@@ -7,6 +7,9 @@ import { createServer }    from "http";
 import { GameEngine }      from "./gameEngine.js";
 import { BlockchainAdapter } from "./blockchainAdapter.js";
 import { SyncEngine }      from "./syncEngine.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const PORT = process.env.PORT || 4020;
 

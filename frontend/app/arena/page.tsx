@@ -1,27 +1,13 @@
+import Header from '@/components/Header';
 import Image from 'next/image';
 
 export default function ArenaPage() {
+  const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://tongames.vercel.app';
+  const lobbyConnectApiUrl = `${baseAppUrl}/api/connect-sync`;
   return (
     <div className="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container min-h-screen">
       {/* TopAppBar */}
-      <header className="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-20 bg-surface shadow-[0_0_24px_rgba(65,117,255,0.08)]">
-        <div className="text-2xl font-black text-white italic tracking-tighter uppercase font-headline">TON Games</div>
-        <nav className="hidden md:flex items-center gap-10">
-          <a className="font-headline font-bold uppercase tracking-widest text-outline hover:text-white transition-colors" href="#">Lobby</a>
-          <a className="font-headline font-bold uppercase tracking-widest text-secondary border-b-2 border-secondary pb-1" href="#">Arena</a>
-          <a className="font-headline font-bold uppercase tracking-widest text-outline hover:text-white transition-colors" href="#">Vault</a>
-          <a className="font-headline font-bold uppercase tracking-widest text-outline hover:text-white transition-colors" href="#">History</a>
-        </nav>
-        <div className="flex items-center gap-6">
-          <div className="flex gap-4">
-            <span className="material-symbols-outlined text-outline cursor-pointer hover:text-white transition-all active:scale-95">settings</span>
-            <span className="material-symbols-outlined text-outline cursor-pointer hover:text-white transition-all active:scale-95">help</span>
-          </div>
-          <button className="bg-primary-container text-on-primary-container px-6 py-2 rounded-lg font-headline font-bold uppercase tracking-wider shadow-[0_0_20px_rgba(99,138,255,0.4)] active:scale-95 transition-all">
-            Connect Wallet
-          </button>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Content Canvas */}
       <main className="pt-24 pb-32 px-6 min-h-screen flex flex-col gap-8 max-w-[1600px] mx-auto relative z-10">
@@ -149,6 +135,21 @@ export default function ArenaPage() {
 
           {/* Right Wing: Live Betting & Stats */}
           <div className="lg:col-span-3 flex flex-col gap-6">
+            <div className="glass-panel rounded-2xl p-6 flex flex-col items-center gap-4">
+              <h4 className="font-headline font-bold uppercase text-xs tracking-[0.2em] text-outline text-center">Scan to Join Sync Server</h4>
+              <Image
+                src="/api/connect-lobby/qr"
+                alt="QR code to connect to TON Games lobby"
+                width={220}
+                height={220}
+                className="rounded-xl border border-outline-variant/20 bg-white p-2"
+                unoptimized
+              />
+              <p className="text-[10px] font-robotomono text-outline text-center break-all">
+                {lobbyConnectApiUrl}
+              </p>
+            </div>
+
             {/* Betting Stats Card */}
             <div className="glass-panel rounded-2xl p-6 flex flex-col gap-4">
               <div className="flex justify-between items-center">

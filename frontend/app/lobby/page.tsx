@@ -1,8 +1,56 @@
-import React from 'react';
+"use client";
+
+import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Header from '@/components/Header';
+import { useSearchParams } from 'next/navigation';
 
 export default function LobbyPage() {
+  const searchParams = useSearchParams();
+  const [syncStatus, setSyncStatus] = useState('connecting' as 'connecting' | 'connected' | 'offline');
+
+  const websocketUrl = useMemo(() => {
+    const fromQuery = searchParams.get('ws');
+    if (fromQuery) return fromQuery;
+
+    if (globalThis.window === undefined) return null;
+    const protocol = globalThis.window.location.protocol === 'https:' ? 'wss' : 'ws';
+    return `${protocol}://${globalThis.window.location.hostname}:4020`;
+  }, [searchParams]);
+
+  const effectiveSyncStatus = websocketUrl ? syncStatus : 'offline';
+
+  let syncStatusLabel = 'SYNC OFFLINE';
+  if (effectiveSyncStatus === 'connected') {
+    syncStatusLabel = 'SYNC CONNECTED';
+  } else if (effectiveSyncStatus === 'connecting') {
+    syncStatusLabel = 'CONNECTING...';
+  }
+
+  useEffect(() => {
+    if (!websocketUrl) return;
+
+    let active = true;
+    const socket = new WebSocket(websocketUrl);
+
+    socket.onopen = () => {
+      if (active) setSyncStatus('connected');
+    };
+
+    socket.onerror = () => {
+      if (active) setSyncStatus('offline');
+    };
+
+    socket.onclose = () => {
+      if (active) setSyncStatus('offline');
+    };
+
+    return () => {
+      active = false;
+      socket.close();
+    };
+  }, [websocketUrl]);
+
   return (
     <div className="bg-mesh font-body text-on-surface min-h-screen overflow-hidden selection:bg-primary-container selection:text-white">
       <Header />
@@ -123,7 +171,7 @@ export default function LobbyPage() {
                 <span className="material-symbols-outlined text-tertiary text-4xl">local_fire_department</span>
                 <div className="text-left">
                   <p className="font-robotomono text-xs uppercase text-outline">Current Status</p>
-                  <p className="font-bold text-lg">WARM-UP PHASE</p>
+                  <p className="font-bold text-lg">{syncStatusLabel}</p>
                 </div>
               </div>
               <div className="h-12 w-[2px] bg-outline-variant/20"></div>
@@ -138,8 +186,8 @@ export default function LobbyPage() {
               <div className="flex items-center gap-4">
                 <span className="material-symbols-outlined text-primary text-4xl">schedule</span>
                 <div className="text-left">
-                  <p className="font-robotomono text-xs uppercase text-outline">Time Remaining</p>
-                  <p className="font-bold text-lg">04:52</p>
+                  <p className="font-robotomono text-xs uppercase text-outline">Sync Endpoint</p>
+                  <p className="font-bold text-lg text-xs max-w-[220px] truncate">{websocketUrl || 'N/A'}</p>
                 </div>
               </div>
             </div>

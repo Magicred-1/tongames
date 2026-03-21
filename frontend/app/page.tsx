@@ -1,20 +1,41 @@
 "use client";
 
-import React from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useRouter } from 'next/navigation';
+import { useTelegramLogin } from '@dynamic-labs/sdk-react-core';
 
 export default function LoginPage() {
-      const { setShowAuthFlow, handleLogOut, user } = useDynamicContext();
-    
-      const handleConnect = () => {
-        if (user) {
-          handleLogOut();
-        } else {
-          setShowAuthFlow(true);
-        }
-      };
-    
+  const router = useRouter();
+  const { telegramSignIn } = useTelegramLogin();
+  const [isConnectingTelegram, setIsConnectingTelegram] = useState(false);
+  const [telegramError, setTelegramError] = useState<string | null>(null);
+
+  const telegramButtonText = useMemo(() => {
+    if (isConnectingTelegram) {
+      return 'CONNECTING TELEGRAM...';
+    }
+
+    return 'CONNECT WITH TELEGRAM';
+  }, [isConnectingTelegram]);
+
+  const handleConnectTelegram = async () => {
+    if (isConnectingTelegram) return;
+
+    setTelegramError(null);
+    setIsConnectingTelegram(true);
+
+    try {
+      // Headless Telegram auth via Dynamic hook.
+      await telegramSignIn();
+      router.push('/lobby');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Telegram connection failed';
+      setTelegramError(message);
+    } finally {
+      setIsConnectingTelegram(false);
+    }
+  };
 
   return (
     <main className="relative z-10 w-full max-w-7xl mx-auto px-8 flex flex-col lg:flex-row items-center justify-center gap-12 xl:gap-24 min-h-screen py-12">
@@ -31,38 +52,6 @@ export default function LoginPage() {
             <span className="text-white">TON</span>
             <div className="text-primary-container">GAMES</div>
           </h1>
-        </div>
-        <p className="text-on-surface-variant text-lg xl:text-xl max-w-xl font-light leading-relaxed">
-          Enter the void. Forge your legacy on the TON network. A high-stakes decentralized arena where strategy meets the speed of light.
-        </p>
-        <div className="flex items-center gap-6 pt-2">
-          <div className="flex -space-x-3">
-            <Image
-              src="/assets/avatar_blue.webp"
-              alt="Cyberpunk character portrait blue theme"
-              width={56}
-              height={56}
-              className="w-14 h-14 rounded-full border-2 border-surface shadow-2xl object-cover"
-            />
-            <Image
-              src="/assets/avatar_green.webp"
-              alt="Cyberpunk character portrait green theme"
-              width={56}
-              height={56}
-              className="w-14 h-14 rounded-full border-2 border-surface shadow-2xl object-cover"
-            />
-            <Image
-              src="/assets/avatar_neon.webp"
-              alt="Cyberpunk character portrait neon theme"
-              width={56}
-              height={56}
-              className="w-14 h-14 rounded-full border-2 border-surface shadow-2xl object-cover"
-            />
-          </div>
-          <div className="text-sm font-robotomono text-outline">
-            <span className="text-secondary font-bold text-base block">12,402</span>
-            <span className="opacity-60 text-[10px] tracking-widest uppercase">PLAYERS ONLINE</span>
-          </div>
         </div>
       </div>
 
@@ -87,32 +76,25 @@ export default function LoginPage() {
             
             {/* Input Section */}
             <div className="space-y-8">
-              <div className="group">
-                <label className="block font-label text-xs uppercase tracking-[0.2em] text-outline mb-3 group-focus-within:text-primary transition-colors">
-                  Identity Hash / Username
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary-container">fingerprint</span>
-                  <input
-                    className="w-full bg-surface-container-highest/30 border border-outline-variant/20 rounded-xl py-5 pl-14 pr-5 text-white font-robotomono focus:ring-2 focus:ring-primary-container/30 focus:bg-surface-container-highest/50 outline-none placeholder:text-outline/30 transition-all font-mono"
-                    placeholder="OPERATOR_X"
-                    type="text"
-                  />
-                </div>
-              </div>
               
               {/* Telegram Integration */}
               <div className="space-y-4">
-                <button className="w-full group relative flex items-center justify-center gap-4 bg-telegram-blue hover:bg-[#208aba] text-white font-headline font-bold py-5 rounded-xl transition-all active:scale-[0.98] shadow-[0_0_40px_rgba(36,161,222,0.25)] overflow-hidden"
-                    onClick={handleConnect}
+                <button className="w-full group relative flex items-center justify-center gap-4 bg-telegram-blue hover:bg-[#208aba] text-white font-headline font-bold py-5 rounded-xl transition-all active:scale-[0.98] shadow-[0_0_40px_rgba(36,161,222,0.25)] overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed"
+                  onClick={handleConnectTelegram}
+                  disabled={isConnectingTelegram}
                 >
                   <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M11.944 0C5.346 0 0 5.346 0 11.944c0 6.598 5.346 11.944 11.944 11.944 6.598 0 11.944-5.346 11.944-11.944C23.888 5.346 18.542 0 11.944 0zm5.206 8.358l-1.84 8.672c-.14.62-.507.774-1.026.484l-2.804-2.068-1.352 1.3c-.15.15-.274.274-.563.274l.2-2.844 5.176-4.675c.225-.2-.049-.311-.349-.111l-6.398 4.027-2.757-.862c-.6-.188-.612-.6.126-.887l10.774-4.15c.5-.188.937.112.713.842z"></path>
                   </svg>
-                  <span className="tracking-wider text-lg">CONNECT WITH TELEGRAM</span>
+                  <span className="tracking-wider text-lg">{telegramButtonText}</span>
                   <div className="absolute inset-0 rounded-xl border border-white/20 pointer-events-none"></div>
                 </button>
+                {telegramError ? (
+                  <p className="text-xs text-red-300 font-robotomono px-1" role="alert">
+                    {telegramError}
+                  </p>
+                ) : null}
                 <div className="flex items-center justify-between px-2">
                   <span className="h-[1px] flex-1 bg-outline-variant/20"></span>
                   <span className="px-6 font-robotomono text-[10px] text-outline/50 uppercase tracking-widest">Secured Gateway</span>
@@ -120,19 +102,7 @@ export default function LoginPage() {
                 </div>
               </div>
             </div>
-
-            {/* Footnote / Help */}
-            <footer className="flex items-center justify-between pt-6 border-t border-outline-variant/10">
-              <a className="text-xs font-label text-outline hover:text-white transition-colors flex items-center gap-2 group" href="#">
-                <span className="material-symbols-outlined text-sm group-hover:rotate-12 transition-transform">help</span>
-                SUPPORT TERMINAL
-              </a>
-              <div className="flex items-center gap-3 bg-secondary/5 px-3 py-1.5 rounded-lg border border-secondary/10">
-                <div className="w-2 h-2 rounded-full bg-secondary animate-pulse shadow-[0_0_8px_#7dffa2]"></div>
-                <span className="text-[10px] font-robotomono text-secondary uppercase tracking-tighter">Nodes Healthy</span>
-              </div>
-            </footer>
-          </div>
+        </div>
         </div>
 
         {/* Transactional Status Display */}
@@ -141,13 +111,6 @@ export default function LoginPage() {
             <div className="text-[10px] text-outline/60 font-robotomono uppercase mb-2 tracking-widest">Network Load</div>
             <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
               <div className="h-full w-2/3 bg-primary-container shadow-[0_0_10px_rgba(99,138,255,0.5)]"></div>
-            </div>
-          </div>
-          <div className="bg-surface-container-low/40 p-5 rounded-xl border border-outline-variant/10 backdrop-blur-sm flex flex-col justify-center">
-            <div className="text-[10px] text-outline/60 font-robotomono uppercase mb-2 tracking-widest">Vault Status</div>
-            <div className="flex items-center gap-2 text-secondary font-robotomono text-xs font-bold">
-              <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: '"FILL" 1' }}>lock_open</span>
-              SECURED
             </div>
           </div>
         </div>

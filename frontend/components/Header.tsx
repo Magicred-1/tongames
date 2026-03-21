@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 
@@ -25,11 +26,33 @@ export default function Header() {
     (credential) => credential.format === 'blockchain'
   );
 
+  const userProfile = user as {
+    username?: string;
+    alias?: string;
+    email?: string;
+    profilePictureUrl?: string;
+    avatar?: string;
+    picture?: string;
+  } | null;
+
+  const avatarUrl =
+    userProfile?.profilePictureUrl ||
+    userProfile?.avatar ||
+    userProfile?.picture ||
+    null;
+
+  const displayName =
+    userProfile?.username ||
+    userProfile?.alias ||
+    (userProfile?.email ? userProfile.email.split('@')[0] : null) ||
+    (primaryWallet?.address ? truncateAddress(primaryWallet.address) : null) ||
+    'Connected';
+
+  const initial = displayName.charAt(0).toUpperCase();
+
   const navLinks = [
     { name: 'Lobby', href: '/lobby' },
     { name: 'Arena', href: '/arena' },
-    { name: 'Vault', href: '#' },
-    { name: 'History', href: '#' },
   ];
 
   return (
@@ -61,10 +84,30 @@ export default function Header() {
           <span className="material-symbols-outlined text-outline cursor-pointer hover:text-white transition-all active:scale-95">settings</span>
           <span className="material-symbols-outlined text-outline cursor-pointer hover:text-white transition-all active:scale-95">help</span>
         </div>
-        <button className="bg-primary-container text-on-primary-container px-6 py-2 rounded-lg font-headline font-bold uppercase tracking-wider shadow-[0_0_20px_rgba(99,138,255,0.4)] hover:shadow-[0_0_30px_rgba(99,138,255,0.6)] active:scale-95 transition-all"
+        <button className="bg-primary-container text-on-primary-container px-4 py-2 rounded-lg font-headline font-bold tracking-wider shadow-[0_0_20px_rgba(99,138,255,0.4)] hover:shadow-[0_0_30px_rgba(99,138,255,0.6)] active:scale-95 transition-all"
           onClick={handleConnect}
+          title={user ? 'Log out' : 'Connect wallet'}
         >
-          {user && primaryWallet?.address ? truncateAddress(primaryWallet.address) : "Connect Wallet"}
+          {user ? (
+            <span className="flex items-center gap-2 max-w-[220px]">
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt="User avatar"
+                  width={22}
+                  height={22}
+                  className="w-[22px] h-[22px] rounded-full object-cover border border-white/40"
+                />
+              ) : (
+                <span className="w-[22px] h-[22px] rounded-full border border-white/40 bg-white/20 text-[10px] flex items-center justify-center">
+                  {initial}
+                </span>
+              )}
+              <span className="truncate max-w-[180px]">{displayName}</span>
+            </span>
+          ) : (
+            'Connect Wallet'
+          )}
         </button>
       </div>
     </header>

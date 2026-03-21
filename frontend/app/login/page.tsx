@@ -1,7 +1,91 @@
-import React from 'react';
+"use client";
+
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { useTelegramLogin } from '@dynamic-labs/sdk-react-core';
+
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        initData?: string;
+        initDataUnsafe?: {
+          start_param?: string;
+        };
+      };
+    };
+  }
+}
+
+function getTelegramAuthToken(): string | undefined {
+  if (globalThis.window === undefined) {
+    return undefined;
+  }
+
+  const w = globalThis.window;
+
+  const fromQuery = new URLSearchParams(w.location.search).get('telegramAuthToken');
+  if (fromQuery) return fromQuery;
+
+  const fromSession = w.sessionStorage.getItem('telegramAuthToken');
+  if (fromSession) return fromSession;
+
+  const fromLocal = w.localStorage.getItem('telegramAuthToken');
+  if (fromLocal) return fromLocal;
+
+  const fromStartParam = w.Telegram?.WebApp?.initDataUnsafe?.start_param;
+  if (fromStartParam) return fromStartParam;
+
+  const fromInitData = w.Telegram?.WebApp?.initData;
+  if (fromInitData) return fromInitData;
+
+  return undefined;
+}
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { isAuthWithTelegram, telegramSignIn } = useTelegramLogin();
+  const [isConnectingTelegram, setIsConnectingTelegram] = useState(false);
+  const [telegramError, setTelegramError] = useState<string | null>(null);
+
+  const telegramButtonText = useMemo(() => {
+    if (isConnectingTelegram) {
+      return 'CONNECTING TELEGRAM...';
+    }
+
+    return 'CONNECT WITH TELEGRAM';
+  }, [isConnectingTelegram]);
+
+  const handleConnectTelegram = async () => {
+    if (isConnectingTelegram) return;
+
+    setTelegramError(null);
+    setIsConnectingTelegram(true);
+
+    try {
+      const telegramAuthToken = getTelegramAuthToken();
+
+      if (!telegramAuthToken) {
+        throw new Error('Missing telegramAuthToken. Open this app from your Telegram bot deep-link and pass telegramAuthToken from bot.ts.');
+      }
+
+      const isValidTelegramContext = await isAuthWithTelegram(telegramAuthToken);
+      if (!isValidTelegramContext) {
+        throw new Error('Invalid Telegram auth context. Relaunch from the Telegram bot mini app link.');
+      }
+
+      // Headless Telegram auth via Dynamic hook.
+      await telegramSignIn({ authToken: telegramAuthToken });
+      router.push('/lobby');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Telegram connection failed';
+      setTelegramError(message);
+    } finally {
+      setIsConnectingTelegram(false);
+    }
+  };
+
   return (
     <main className="relative z-10 w-full max-w-7xl mx-auto px-8 flex flex-col lg:flex-row items-center justify-center gap-12 xl:gap-24 min-h-screen py-12">
       {/* Hero Backdrop Logic */}
@@ -74,12 +158,13 @@ export default function LoginPage() {
             {/* Input Section */}
             <div className="space-y-8">
               <div className="group">
-                <label className="block font-label text-xs uppercase tracking-[0.2em] text-outline mb-3 group-focus-within:text-primary transition-colors">
+                <label htmlFor="identityHash" className="block font-label text-xs uppercase tracking-[0.2em] text-outline mb-3 group-focus-within:text-primary transition-colors">
                   Identity Hash / Username
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary-container">fingerprint</span>
                   <input
+                    id="identityHash"
                     className="w-full bg-surface-container-highest/30 border border-outline-variant/20 rounded-xl py-5 pl-14 pr-5 text-white font-robotomono focus:ring-2 focus:ring-primary-container/30 focus:bg-surface-container-highest/50 outline-none placeholder:text-outline/30 transition-all font-mono"
                     placeholder="OPERATOR_X"
                     type="text"
@@ -89,14 +174,22 @@ export default function LoginPage() {
               
               {/* Telegram Integration */}
               <div className="space-y-4">
-                <button className="w-full group relative flex items-center justify-center gap-4 bg-telegram-blue hover:bg-[#208aba] text-white font-headline font-bold py-5 rounded-xl transition-all active:scale-[0.98] shadow-[0_0_40px_rgba(36,161,222,0.25)] overflow-hidden">
+                <button className="w-full group relative flex items-center justify-center gap-4 bg-telegram-blue hover:bg-[#208aba] text-white font-headline font-bold py-5 rounded-xl transition-all active:scale-[0.98] shadow-[0_0_40px_rgba(36,161,222,0.25)] overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed"
+                  onClick={handleConnectTelegram}
+                  disabled={isConnectingTelegram}
+                >
                   <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M11.944 0C5.346 0 0 5.346 0 11.944c0 6.598 5.346 11.944 11.944 11.944 6.598 0 11.944-5.346 11.944-11.944C23.888 5.346 18.542 0 11.944 0zm5.206 8.358l-1.84 8.672c-.14.62-.507.774-1.026.484l-2.804-2.068-1.352 1.3c-.15.15-.274.274-.563.274l.2-2.844 5.176-4.675c.225-.2-.049-.311-.349-.111l-6.398 4.027-2.757-.862c-.6-.188-.612-.6.126-.887l10.774-4.15c.5-.188.937.112.713.842z"></path>
                   </svg>
-                  <span className="tracking-wider text-lg">CONNECT WITH TELEGRAM</span>
+                  <span className="tracking-wider text-lg">{telegramButtonText}</span>
                   <div className="absolute inset-0 rounded-xl border border-white/20 pointer-events-none"></div>
                 </button>
+                {telegramError ? (
+                  <p className="text-xs text-red-300 font-robotomono px-1" role="alert">
+                    {telegramError}
+                  </p>
+                ) : null}
                 <div className="flex items-center justify-between px-2">
                   <span className="h-[1px] flex-1 bg-outline-variant/20"></span>
                   <span className="px-6 font-robotomono text-[10px] text-outline/50 uppercase tracking-widest">Secured Gateway</span>
@@ -107,10 +200,10 @@ export default function LoginPage() {
 
             {/* Footnote / Help */}
             <footer className="flex items-center justify-between pt-6 border-t border-outline-variant/10">
-              <a className="text-xs font-label text-outline hover:text-white transition-colors flex items-center gap-2 group" href="#">
+              <button type="button" className="text-xs font-label text-outline hover:text-white transition-colors flex items-center gap-2 group">
                 <span className="material-symbols-outlined text-sm group-hover:rotate-12 transition-transform">help</span>
-                SUPPORT TERMINAL
-              </a>
+                <span>SUPPORT TERMINAL</span>
+              </button>
               <div className="flex items-center gap-3 bg-secondary/5 px-3 py-1.5 rounded-lg border border-secondary/10">
                 <div className="w-2 h-2 rounded-full bg-secondary animate-pulse shadow-[0_0_8px_#7dffa2]"></div>
                 <span className="text-[10px] font-robotomono text-secondary uppercase tracking-tighter">Nodes Healthy</span>
@@ -131,7 +224,7 @@ export default function LoginPage() {
             <div className="text-[10px] text-outline/60 font-robotomono uppercase mb-2 tracking-widest">Vault Status</div>
             <div className="flex items-center gap-2 text-secondary font-robotomono text-xs font-bold">
               <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: '"FILL" 1' }}>lock_open</span>
-              SECURED
+              <span>SECURED</span>
             </div>
           </div>
         </div>

@@ -5,8 +5,15 @@
   "type": "module",
   "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev":   "node --watch server/index.js"
+    "compile": "tact --config tact.config.json",
+    "deploy":  "node scripts/deploy.js",
+    "deploy:testnet": "TESTNET=true node scripts/deploy.js",
+    "deploy:skip-compile": "SKIP_COMPILE=true node scripts/deploy.js",
+    "start":   "node server/index.js",
+    "dev":     "node --watch server/index.js"
+  },
+  "devDependencies": {
+    "@tact-lang/compiler": "^1.5.0"
   },
   "dependencies": {
     "@ton/core":   "^0.56.3",
