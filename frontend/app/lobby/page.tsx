@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useMemo } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Header from '@/components/Header';
 import { useSearchParams } from 'next/navigation';
@@ -115,14 +115,14 @@ function LobbyPageContent() {
     });
   }, [playerInfo, state.syncStatus, send]);
 
-  const isTelegramWebApp = useMemo(() => {
-    if (typeof window === 'undefined') return false;
+  const [isTelegramWebApp, setIsTelegramWebApp] = useState(false);
+  useEffect(() => {
     const w = window as TelegramAwareWindow;
     const hasInitData = Boolean(w.Telegram?.WebApp?.initData);
     const fromSessionFlag = w.sessionStorage.getItem('dynamicTelegramAuth') === '1';
     const fromQueryFlag = searchParams.get('telegram') === '1';
     const fromAuthToken = searchParams.has('telegramAuthToken');
-    return hasInitData || fromSessionFlag || fromQueryFlag || fromAuthToken;
+    setIsTelegramWebApp(hasInitData || fromSessionFlag || fromQueryFlag || fromAuthToken);
   }, [searchParams]);
 
   const syncStatusLabel = SYNC_LABELS[state.syncStatus];

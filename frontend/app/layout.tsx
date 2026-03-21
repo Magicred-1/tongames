@@ -37,6 +37,7 @@ export default function RootLayout({
       className={`${inter.variable} ${spaceGrotesk.variable} ${robotoMono.variable} h-full antialiased`}
     >
       <head>
+        <script src="https://telegram.org/js/telegram-web-app.js" />
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
           rel="stylesheet"
