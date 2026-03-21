@@ -1,3 +1,4 @@
+import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import Image from "next/image";
 
 export default function Home() {
@@ -31,6 +32,7 @@ export default function Home() {
             >
               Learning
             </a>{" "}
+            <DynamicWidget />
             center.
           </p>
         </div>
