@@ -63,7 +63,7 @@ export default function Header() {
       : null) ||
     'Connected';
 
-  const initial = "@" + displayName.charAt(0).toUpperCase();
+  const initial = displayName.charAt(0).toUpperCase();
 
   const navLinks = [
     { name: 'Lobby', href: '/lobby' },
