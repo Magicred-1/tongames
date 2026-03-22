@@ -59,6 +59,21 @@ const SCRIPT: Attack[][] = [
 
 const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
+// Pre-computed burst particles for the winner modal
+const BURST_COLORS = ['#4175FF', '#7DFFA2', '#FFD60A', '#FF6B6B', '#C77DFF', '#00E5FF'];
+const PARTICLES = Array.from({ length: 24 }, (_, i) => {
+  const angle = (i / 24) * Math.PI * 2;
+  const dist  = 120 + (i % 3) * 70;
+  return {
+    id:    i,
+    tx:    `${Math.round(Math.cos(angle) * dist)}px`,
+    ty:    `${Math.round(Math.sin(angle) * dist)}px`,
+    color: BURST_COLORS[i % BURST_COLORS.length],
+    delay: (i % 6) * 40,
+    size:  i % 4 === 0 ? 12 : i % 3 === 0 ? 8 : 6,
+  };
+});
+
 const LOG_COLOR: Record<LogEntry['type'], string> = {
   info: 'text-outline',
   hit:  'text-on-surface',
@@ -75,8 +90,9 @@ export default function DemoArenaPage() {
   const [myTarget, setMyTarget] = useState<string | null>(null);
   const [diceMap,  setDiceMap]  = useState<Record<string, DiceInfo>>({});
   const [log,      setLog]      = useState<LogEntry[]>([]);
-  const [winner,   setWinner]   = useState<string | null>(null);
-  const [seed,     setSeed]     = useState(0);
+  const [winner,     setWinner]     = useState<string | null>(null);
+  const [showModal,  setShowModal]  = useState(false);
+  const [seed,       setSeed]       = useState(0);
   const logId   = useRef(0);
   const running = useRef(false);
   const logEnd  = useRef<HTMLDivElement>(null);
@@ -190,7 +206,13 @@ export default function DemoArenaPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seed]);
 
-  const restart = () => { running.current = false; setSeed(s => s + 1); };
+  useEffect(() => {
+    if (!winner) { setShowModal(false); return; }
+    const t = setTimeout(() => setShowModal(true), 900);
+    return () => clearTimeout(t);
+  }, [winner]);
+
+  const restart = () => { setShowModal(false); running.current = false; setSeed(s => s + 1); };
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const slots = Array.from({ length: 4 }, (_, i) => players[i] ?? null);
@@ -487,6 +509,132 @@ export default function DemoArenaPage() {
           </div>
         </div>
       </main>
+
+      {/* ── Winner Modal ───────────────────────────────────────────────────── */}
+      {showModal && (() => {
+        const wp = players.find(p => p.id === winner);
+        const wCls = wp ? CLS[wp.cls] : CLS[0];
+        return (
+          <>
+            <style>{`
+              @keyframes backdropIn  { from { opacity:0 } to { opacity:1 } }
+              @keyframes modalPop    { 0% { opacity:0; transform:scale(.5) translateY(40px) } 65% { transform:scale(1.04) translateY(-6px) } 100% { opacity:1; transform:scale(1) translateY(0) } }
+              @keyframes trophyDrop  { 0% { opacity:0; transform:translateY(-70px) scale(.4) rotate(-20deg) } 65% { transform:translateY(8px) scale(1.12) rotate(6deg) } 100% { opacity:1; transform:none } }
+              @keyframes glowPulse   { 0%,100% { text-shadow:0 0 20px rgba(125,255,162,.5),0 0 40px rgba(125,255,162,.2) } 50% { text-shadow:0 0 40px rgba(125,255,162,1),0 0 80px rgba(125,255,162,.5) } }
+              @keyframes burst       { 0% { opacity:1; transform:translate(0,0) scale(1) } 100% { opacity:0; transform:translate(var(--tx),var(--ty)) scale(0) } }
+              @keyframes shimmerBar  { 0% { background-position:-200% center } 100% { background-position:200% center } }
+            `}</style>
+
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-md cursor-pointer"
+              style={{ animation: 'backdropIn .4s ease forwards' }}
+              onClick={() => setShowModal(false)}
+            />
+
+            {/* Burst particles */}
+            <div className="fixed inset-0 z-[101] pointer-events-none flex items-center justify-center">
+              {PARTICLES.map(p => (
+                <div
+                  key={p.id}
+                  className="absolute rounded-full"
+                  style={{
+                    width: p.size, height: p.size,
+                    background: p.color,
+                    '--tx': p.tx, '--ty': p.ty,
+                    animation: `burst 1.1s ${p.delay}ms cubic-bezier(.25,.46,.45,.94) forwards`,
+                  } as React.CSSProperties}
+                />
+              ))}
+            </div>
+
+            {/* Modal card */}
+            <div className="fixed inset-0 z-[102] flex items-center justify-center pointer-events-none px-4">
+              <div
+                className="w-full max-w-sm pointer-events-auto bg-surface-container rounded-3xl border border-secondary/30 shadow-[0_0_80px_rgba(125,255,162,0.25)] overflow-hidden"
+                style={{ animation: 'modalPop .55s cubic-bezier(.34,1.56,.64,1) forwards' }}
+              >
+                {/* Top shimmer strip */}
+                <div
+                  className="h-[3px] w-full"
+                  style={{
+                    background: 'linear-gradient(90deg,transparent,#7DFFA2,#4175FF,#7DFFA2,transparent)',
+                    backgroundSize: '200% auto',
+                    animation: 'shimmerBar 2s linear infinite',
+                  }}
+                />
+
+                <div className="p-8 flex flex-col items-center gap-6">
+                  {/* Trophy */}
+                  <div style={{ animation: 'trophyDrop .65s .15s cubic-bezier(.34,1.56,.64,1) both' }}>
+                    <span
+                      className="material-symbols-outlined text-secondary"
+                      style={{ fontSize: 88, fontVariationSettings: '"FILL" 1' }}
+                    >emoji_events</span>
+                  </div>
+
+                  {/* Title + name */}
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <span className="font-label text-outline uppercase tracking-[0.3em] text-xs">Arena Winner</span>
+                    <h2
+                      className="font-headline font-black text-4xl sm:text-5xl text-secondary uppercase italic tracking-tighter"
+                      style={{ animation: 'glowPulse 2s .8s ease-in-out infinite' }}
+                    >
+                      @{wp?.name}
+                    </h2>
+                    <span className={`font-robotomono text-sm text-${wCls.color} uppercase flex items-center gap-1.5`}>
+                      <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: '"FILL" 1' }}>{wCls.icon}</span>
+                      {wCls.name}
+                    </span>
+                  </div>
+
+                  {/* Prize box */}
+                  <div className="w-full bg-secondary/10 border border-secondary/20 rounded-2xl p-5 flex flex-col items-center gap-1">
+                    <span className="font-label text-outline text-[10px] uppercase tracking-widest">Prize Earned</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-headline font-black text-4xl text-secondary">+0.039</span>
+                      <span className="font-robotomono text-primary font-bold text-lg">TON</span>
+                    </div>
+                    <span className="font-robotomono text-[10px] text-outline mt-1">House fee 2% deducted</span>
+                  </div>
+
+                  {/* Stats row */}
+                  <div className="w-full grid grid-cols-3 gap-2 text-center">
+                    {[
+                      { label: 'Rounds', value: '3' },
+                      { label: 'Kills',  value: '2' },
+                      { label: 'Crits',  value: '2' },
+                    ].map(s => (
+                      <div key={s.label} className="bg-surface-container-highest rounded-xl py-3">
+                        <p className="font-headline font-black text-xl text-white">{s.value}</p>
+                        <p className="font-robotomono text-[9px] text-outline uppercase">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-3 w-full">
+                    <button
+                      onClick={restart}
+                      className="flex-1 bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-white py-3 rounded-xl font-headline font-bold uppercase text-xs tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-base">replay</span>
+                      Replay
+                    </button>
+                    <Link
+                      href="/lobby"
+                      className="flex-1 bg-primary-container text-on-primary-container py-3 rounded-xl font-headline font-bold uppercase text-xs tracking-widest transition-all hover:shadow-[0_0_20px_rgba(99,138,255,0.4)] active:scale-95 flex items-center justify-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-base">swords</span>
+                      Play Real
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
