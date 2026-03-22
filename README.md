@@ -19,7 +19,7 @@ On-chain PvP arena game on the TON blockchain. Players commit-reveal dice rolls 
 
 ```
 contracts/       Tact smart contracts (GameContract, EscrowContract)
-frontend/        Next.js app (Tailwind, Dynamic.xyz, TON Connect)
+frontend/        Next.js app (Tailwind, Dynamic.xyz, TON Connect through Dynamic.xyz)
 server/          Node.js WebSocket game server
 telegram_bot/    Telegram bot for mini app auth & lobby links
 ```
