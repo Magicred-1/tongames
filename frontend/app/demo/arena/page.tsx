@@ -286,12 +286,12 @@ export default function DemoArenaPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 h-auto lg:h-[650px]">
 
           {/* Left: Combat log */}
-          <div className="lg:col-span-3 flex flex-col gap-4">
-            <h3 className="font-headline font-bold uppercase text-outline text-sm tracking-widest flex items-center gap-2">
+          <div className="lg:col-span-3 flex flex-col gap-4 min-h-0">
+            <h3 className="font-headline font-bold uppercase text-outline text-sm tracking-widest flex items-center gap-2 flex-shrink-0">
               <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
               Live Combat Log
             </h3>
-            <div className="glass-panel rounded-xl flex-1 p-4 overflow-y-auto font-robotomono text-xs space-y-2 border-l-4 border-secondary/30 max-h-[400px] lg:max-h-none">
+            <div className="glass-panel rounded-xl flex-1 min-h-0 p-4 overflow-y-auto font-robotomono text-xs space-y-2 border-l-4 border-secondary/30 max-h-[260px] lg:max-h-none">
               {log.map(entry => (
                 <div key={entry.id} className={LOG_COLOR[entry.type]}>{entry.text}</div>
               ))}
