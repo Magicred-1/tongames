@@ -59,8 +59,16 @@ const SCRIPT: Attack[][] = [
 
 const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
+const LOG_COLOR: Record<LogEntry['type'], string> = {
+  info: 'text-outline',
+  hit:  'text-on-surface',
+  crit: 'text-tertiary font-bold',
+  elim: 'text-error font-bold',
+  win:  'text-secondary font-bold',
+};
+
 // ── Component ───────────────────────────────────────────────────────────────────
-export default function ArenaDemoPage() {
+export default function DemoArenaPage() {
   const [round,    setRound]    = useState(0);
   const [phase,    setPhase]    = useState<Phase>('LOBBY');
   const [players,  setPlayers]  = useState<DemoPlayer[]>(INIT.map(p => ({ ...p })));
@@ -68,7 +76,7 @@ export default function ArenaDemoPage() {
   const [diceMap,  setDiceMap]  = useState<Record<string, DiceInfo>>({});
   const [log,      setLog]      = useState<LogEntry[]>([]);
   const [winner,   setWinner]   = useState<string | null>(null);
-  const [key,      setKey]      = useState(0);       // bump to restart
+  const [seed,     setSeed]     = useState(0);
   const logId   = useRef(0);
   const running = useRef(false);
   const logEnd  = useRef<HTMLDivElement>(null);
@@ -77,12 +85,6 @@ export default function ArenaDemoPage() {
     setLog(prev => [...prev, { id: logId.current++, text, type }]);
   }, []);
 
-  // const patchDice = useCallback((id: string, patch: Partial<DiceInfo>) => {
-  //   setDiceMap(prev => ({ rolling: false, value: 0, diceMax: 10, ...prev[id], ...patch, } as unknown as Record<string, DiceInfo> & DiceInfo,
-  //     { ...prev, [id]: { rolling: false, value: 0, diceMax: 10, ...prev[id], ...patch } })[1]);
-  // }, []);
-
-  // scroll log to bottom
   useEffect(() => { logEnd.current?.scrollIntoView({ behavior: 'smooth' }); }, [log]);
 
   const runDemo = useCallback(async () => {
@@ -98,55 +100,48 @@ export default function ArenaDemoPage() {
     setWinner(null);
     setRound(0);
 
-    // ── LOBBY ─────────────────────────────────────────────────────────────────
     setPhase('LOBBY');
-    addLog('Room created. Waiting for players…');
-    for (const p of st) {
-      await wait(400);
-      addLog(`${p.name} joined the arena`);
-    }
-    await wait(700);
-    addLog('All players ready — starting round 1!');
-    await wait(500);
+    addLog('Battle commencing — warriors locked in.');
+    await wait(800);
 
     for (let r = 0; r < SCRIPT.length; r++) {
       const rNum = r + 1;
       setRound(rNum);
 
-      // ── COMMIT ───────────────────────────────────────────────────────────────
+      // ── COMMIT ────────────────────────────────────────────────────────────────
       setPhase('COMMIT');
       setMyTarget('p1');
-      addLog(`[Round ${rNum}] Commit phase`);
+      addLog(`[Round ${rNum}] Commit phase started`);
       st = st.map(p => ({ ...p, committed: false, revealed: false }));
       setPlayers(st.map(p => ({ ...p })));
-      await wait(400);
+
       for (const p of st.filter(x => x.alive)) {
-        await wait(350);
+        await wait(320);
         st = st.map(x => x.id === p.id ? { ...x, committed: true } : x);
         setPlayers(st.map(x => ({ ...x })));
       }
       await wait(600);
 
-      // ── REVEAL ───────────────────────────────────────────────────────────────
+      // ── REVEAL ────────────────────────────────────────────────────────────────
       setPhase('REVEAL');
       addLog(`[Round ${rNum}] Reveal phase`);
       for (const p of st.filter(x => x.alive)) {
-        await wait(280);
+        await wait(260);
         st = st.map(x => x.id === p.id ? { ...x, revealed: true } : x);
         setPlayers(st.map(x => ({ ...x })));
       }
       await wait(500);
 
-      // ── RESOLVE ──────────────────────────────────────────────────────────────
+      // ── RESOLVE ───────────────────────────────────────────────────────────────
       setPhase('RESOLVE');
-      addLog(`[Round ${rNum}] Resolving combat…`, 'info');
+      addLog(`[Round ${rNum}] Resolving combat…`);
 
       for (const [aId, tId, roll, dMax, dmg, crit] of SCRIPT[r]) {
         const atk = st.find(p => p.id === aId);
         const tgt = st.find(p => p.id === tId);
         if (!atk?.alive || !tgt?.alive) continue;
 
-        setDiceMap(prev => ({ ...prev, [aId]: { rolling: true, value: 0, diceMax: dMax } }));
+        setDiceMap(prev => ({ ...prev, [aId]: { rolling: true,  value: 0,    diceMax: dMax } }));
         await wait(700);
         setDiceMap(prev => ({ ...prev, [aId]: { rolling: false, value: roll, diceMax: dMax } }));
         await wait(400);
@@ -174,15 +169,13 @@ export default function ArenaDemoPage() {
         const w = alive[0] ?? st[0];
         setWinner(w.id);
         setPhase('DONE');
-        addLog(`🏆 ${w.name} WINS THE ARENA!`, 'win');
+        addLog(`${w.name} WINS THE ARENA!`, 'win');
         running.current = false;
         return;
       }
-
       await wait(800);
     }
 
-    // fallback winner
     const alive = st.filter(p => p.alive);
     const w = alive[0] ?? st[0];
     setWinner(w.id);
@@ -195,9 +188,11 @@ export default function ArenaDemoPage() {
     running.current = false;
     runDemo();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [seed]);
 
-  // ── Derived values ─────────────────────────────────────────────────────────
+  const restart = () => { running.current = false; setSeed(s => s + 1); };
+
+  // ── Derived ────────────────────────────────────────────────────────────────
   const slots = Array.from({ length: 4 }, (_, i) => players[i] ?? null);
 
   const banner = (() => {
@@ -209,19 +204,11 @@ export default function ArenaDemoPage() {
       if (!myTarget) return { text: `Round ${round} — SELECT TARGET`, style: 'bg-error/90 text-white shadow-[0_0_40px_rgba(255,60,60,0.5)]' };
       return { text: `Round ${round} — COMMIT HASH`, style: 'bg-primary-container text-on-primary-container shadow-[0_0_40px_rgba(99,138,255,0.4)]' };
     }
-    if (phase === 'REVEAL')  return { text: `Round ${round} — REVEAL`,   style: 'bg-primary-container text-on-primary-container shadow-[0_0_40px_rgba(99,138,255,0.4)]' };
-    if (phase === 'RESOLVE') return { text: 'COMBAT RESOLVING!',          style: 'bg-tertiary text-on-tertiary shadow-[0_0_40px_rgba(255,200,100,0.4)]' };
-    if (phase === 'LOBBY')   return { text: 'WAITING FOR PLAYERS…',       style: 'bg-surface-container-highest text-outline' };
+    if (phase === 'REVEAL')  return { text: `Round ${round} — REVEAL`,  style: 'bg-primary-container text-on-primary-container shadow-[0_0_40px_rgba(99,138,255,0.4)]' };
+    if (phase === 'RESOLVE') return { text: 'COMBAT RESOLVING!',         style: 'bg-tertiary text-on-tertiary shadow-[0_0_40px_rgba(255,200,100,0.4)]' };
+    if (phase === 'LOBBY')   return { text: 'PREPARING BATTLE…',         style: 'bg-surface-container-highest text-outline' };
     return null;
   })();
-
-  const logColor: Record<LogEntry['type'], string> = {
-    info: 'text-outline',
-    hit:  'text-on-surface',
-    crit: 'text-tertiary font-bold',
-    elim: 'text-error font-bold',
-    win:  'text-secondary font-bold',
-  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -239,7 +226,7 @@ export default function ArenaDemoPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { running.current = false; setKey(k => k + 1); }}
+              onClick={restart}
               className="bg-surface-container hover:bg-surface-container-high text-outline hover:text-white px-3 py-1.5 rounded-lg font-headline font-bold uppercase text-[10px] tracking-widest transition-all active:scale-95 flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-sm">replay</span>
@@ -255,28 +242,28 @@ export default function ArenaDemoPage() {
           </div>
         </div>
 
-        {/* Arena Header */}
+        {/* Arena header */}
         <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-4 lg:gap-6">
           <div className="flex flex-col">
-            <span className="font-label text-secondary uppercase tracking-[0.2em] sm:tracking-[0.3em] text-xs sm:text-sm">Demo Arena Session</span>
+            <span className="font-label text-secondary uppercase tracking-[0.2em] sm:tracking-[0.3em] text-xs sm:text-sm">Demo Arena</span>
             <h1 className="font-headline font-black text-3xl sm:text-4xl lg:text-5xl italic text-white uppercase tracking-tighter">
               ROOM DEMO-01
             </h1>
           </div>
           <div className="glass-panel p-4 sm:p-6 rounded-xl flex flex-col items-center w-full lg:w-auto lg:min-w-[320px] relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
-            <span className="font-label text-outline uppercase text-xs tracking-widest mb-1 relative z-10">Total Prize Pool</span>
+            <span className="font-label text-outline uppercase text-xs tracking-widest mb-1 relative z-10">Prize Pool</span>
             <div className="flex items-baseline gap-2 relative z-10">
-              <span className="font-headline font-black text-3xl sm:text-4xl text-secondary">0.04</span>
+              <span className="font-headline font-black text-3xl sm:text-4xl text-secondary">0.039</span>
               <span className="font-robotomono text-primary font-bold">TON</span>
             </div>
           </div>
         </div>
 
-        {/* Combat Grid */}
+        {/* Combat grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 h-auto lg:h-[650px]">
 
-          {/* Left: Combat Log */}
+          {/* Left: Combat log */}
           <div className="lg:col-span-3 flex flex-col gap-4">
             <h3 className="font-headline font-bold uppercase text-outline text-sm tracking-widest flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
@@ -284,15 +271,13 @@ export default function ArenaDemoPage() {
             </h3>
             <div className="glass-panel rounded-xl flex-1 p-4 overflow-y-auto font-robotomono text-xs space-y-2 border-l-4 border-secondary/30 max-h-[400px] lg:max-h-none">
               {log.map(entry => (
-                <div key={entry.id} className={logColor[entry.type]}>
-                  {entry.text}
-                </div>
+                <div key={entry.id} className={LOG_COLOR[entry.type]}>{entry.text}</div>
               ))}
               <div ref={logEnd} />
             </div>
           </div>
 
-          {/* Center: 2×2 Player Grid */}
+          {/* Center: 2×2 player grid */}
           <div className="lg:col-span-6 relative glass-panel rounded-3xl overflow-hidden border-2 border-primary-container/10 p-4 sm:p-6 lg:p-8">
             <div className="absolute inset-0 opacity-10 pointer-events-none">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary rounded-full blur-[120px] opacity-20" />
@@ -307,11 +292,14 @@ export default function ArenaDemoPage() {
                   </div>
                 );
 
-                const cls       = CLS[player.cls];
-                const dice      = diceMap[player.id];
-                const isMe      = player.id === 'me';
-                const isTarget  = player.id === myTarget;
-                const showDice  = dice && (dice.rolling || dice.value > 0);
+                const cls      = CLS[player.cls];
+                const dice     = diceMap[player.id];
+                const showDice = dice && (dice.rolling || dice.value > 0);
+                const isMe     = player.id === 'me';
+                const isTarget = player.id === myTarget;
+
+                const hpPct = player.hp;
+                const hpColor = hpPct > 50 ? 'bg-secondary' : hpPct > 25 ? 'bg-tertiary' : 'bg-error';
 
                 return (
                   <div
@@ -339,14 +327,11 @@ export default function ArenaDemoPage() {
                         <span>HP</span><span>{player.hp}</span>
                       </div>
                       <div className="h-1 bg-surface-container-highest rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-500 ${player.hp > 50 ? 'bg-secondary' : player.hp > 25 ? 'bg-tertiary' : 'bg-error'}`}
-                          style={{ width: `${player.hp}%` }}
-                        />
+                        <div className={`h-full transition-all duration-500 ${hpColor}`} style={{ width: `${hpPct}%` }} />
                       </div>
                     </div>
 
-                    {/* Avatar / dice */}
+                    {/* Avatar */}
                     <div className="relative">
                       <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-full bg-surface-container-highest border-2 border-white/10 drop-shadow-[0_0_15px_rgba(99,138,255,0.4)] flex items-center justify-center">
                         <span className={`font-headline font-black text-2xl sm:text-3xl text-${cls.color}`}>
@@ -368,7 +353,7 @@ export default function ArenaDemoPage() {
                       </div>
                       <div className={`font-robotomono text-[10px] text-${cls.color}`}>
                         {cls.name} · {
-                          !player.alive ? 'ELIMINATED' :
+                          !player.alive      ? 'ELIMINATED' :
                           phase === 'COMMIT'  ? (player.committed ? 'COMMITTED ✓' : 'COMMITTING…') :
                           phase === 'REVEAL'  ? (player.revealed  ? 'REVEALED ✓'  : 'REVEALING…')  :
                           phase === 'RESOLVE' ? 'RESOLVING…' : 'READY'
@@ -380,7 +365,6 @@ export default function ArenaDemoPage() {
               })}
             </div>
 
-            {/* Center banner */}
             {banner && (
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
                 <div className={`px-4 sm:px-8 py-2 sm:py-3 rounded-full font-headline font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] text-[10px] sm:text-sm whitespace-nowrap ${banner.style}`}>
@@ -390,10 +374,10 @@ export default function ArenaDemoPage() {
             )}
           </div>
 
-          {/* Right: Stats */}
+          {/* Right: Side panels */}
           <div className="lg:col-span-3 flex flex-col gap-6">
 
-            {/* Your target widget */}
+            {/* Your target (COMMIT/REVEAL only) */}
             {(phase === 'COMMIT' || phase === 'REVEAL') && (
               <div className="glass-panel rounded-2xl p-4 flex flex-col gap-2">
                 <h4 className="font-headline font-bold uppercase text-xs tracking-[0.2em] text-outline flex items-center gap-2">
@@ -401,7 +385,7 @@ export default function ArenaDemoPage() {
                   Your Target
                 </h4>
                 {myTarget ? (() => {
-                  const tp = players.find(p => p.id === myTarget);
+                  const tp   = players.find(p => p.id === myTarget);
                   const tCls = tp ? CLS[tp.cls] : CLS[0];
                   return (
                     <div className="flex items-center gap-3 bg-error/10 border border-error/30 rounded-xl px-3 py-2">
@@ -416,7 +400,7 @@ export default function ArenaDemoPage() {
               </div>
             )}
 
-            {/* Player HP */}
+            {/* HP tracker */}
             <div className="glass-panel rounded-2xl p-6 flex flex-col gap-4">
               <div className="flex justify-between items-center">
                 <h4 className="font-headline font-bold uppercase text-xs tracking-[0.2em] text-outline">Player HP</h4>
@@ -443,22 +427,22 @@ export default function ArenaDemoPage() {
               </div>
             </div>
 
-            {/* Spectator bets (mocked) */}
+            {/* Spectator bets */}
             <div className="flex-1 glass-panel rounded-2xl overflow-hidden flex flex-col">
               <div className="p-4 border-b border-outline-variant/20 bg-white/5">
-                <h4 className="font-headline font-bold uppercase text-[10px] tracking-widest text-outline">Top Spectator Bets</h4>
+                <h4 className="font-headline font-bold uppercase text-[10px] tracking-widest text-outline">Spectator Bets</h4>
               </div>
               <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[200px]">
                 {[
-                  { init: 'JD', name: 'JamesDoge',   on: 'NexusNode',  amount: '1.2k' },
-                  { init: 'SK', name: 'SatoshiKing',  on: 'CryptoWolf', amount: '800'  },
-                  { init: 'AL', name: 'AlphaLion',    on: 'ShadowByte', amount: '500'  },
+                  { init: 'JD', name: 'JamesDoge',  on: 'NexusNode',  amount: '1.2k' },
+                  { init: 'SK', name: 'SatoshiKing', on: 'CryptoWolf', amount: '800'  },
+                  { init: 'AL', name: 'AlphaLion',   on: 'ShadowByte', amount: '500'  },
                 ].map(b => (
-                  <div key={b.name} className="flex items-center justify-between p-3 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors">
+                  <div key={b.name} className="flex items-center justify-between p-3 rounded-lg bg-surface-container">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">{b.init}</div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-white">{b.name}</span>
+                      <div>
+                        <span className="text-xs font-bold text-white block">{b.name}</span>
                         <span className="text-[9px] text-outline">on {b.on}</span>
                       </div>
                     </div>
@@ -484,11 +468,11 @@ export default function ArenaDemoPage() {
                 </div>
                 <div className="flex gap-2 w-full">
                   <button
-                    onClick={() => { running.current = false; setKey(k => k + 1); }}
+                    onClick={restart}
                     className="flex-1 bg-surface-container hover:bg-surface-container-high text-outline hover:text-white py-2 rounded-xl font-headline font-bold uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-1"
                   >
                     <span className="material-symbols-outlined text-sm">replay</span>
-                    Again
+                    Replay
                   </button>
                   <Link
                     href="/lobby"
