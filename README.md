@@ -24,6 +24,67 @@ server/          Node.js WebSocket game server
 telegram_bot/    Telegram bot for mini app auth & lobby links
 ```
 
+## Architecture
+
+```mermaid
+flowchart TD
+    subgraph Clients["📱 Clients"]
+        TMA["Telegram Mini App\n(auto-login via Dynamic.xyz)"]
+        TV["TV / Spectator Screen"]
+    end
+
+    subgraph Server["🖥️ Game Server (Node.js + WebSocket)"]
+        GE["GameEngine\n(off-chain combat mirror)"]
+        SE["SyncEngine\n(broadcast to TV)"]
+        BA["BlockchainAdapter\n(TON SDK)"]
+    end
+
+    subgraph Chain["⛓️ TON Blockchain"]
+        GC["GameContract\ncommit · reveal · resolve · payout"]
+        EC["EscrowContract\nholds stakes · releases to winner"]
+    end
+
+    TMA -->|WebSocket| GE
+    GE -->|broadcast| SE
+    SE -->|WebSocket| TV
+    GE -->|build + send tx| BA
+    BA -->|Stake / CommitHash\nRevealSecret / TriggerResolve\nTriggerPayout| GC
+    GC -->|DepositStake| EC
+    GC -->|ReleaseFunds / RefundAll| EC
+    EC -->|"98% prize\n(2% house fee)"| TMA
+```
+
+## Game Flow
+
+```mermaid
+sequenceDiagram
+    participant P as Players (×4)
+    participant S as Game Server
+    participant GC as GameContract
+    participant EC as EscrowContract
+
+    P->>S: LOBBY_JOIN
+    P->>GC: Stake{classType} (0.01 TON)
+    GC->>EC: DepositStake
+
+    loop Each Round
+        S->>P: COMMIT_PHASE
+        P->>GC: CommitHash{sha256(secret‖nonce‖addr)}
+        S->>P: REVEAL_PHASE
+        P->>GC: RevealSecret{secret, nonce}
+        Note over GC: XOR all secrets → combinedEntropy<br/>finalRandom = sha256(entropy‖round)
+        P->>GC: SelectTarget
+        S->>GC: TriggerResolve
+        GC->>S: combat results (damage, crits, eliminations)
+        S->>P: ROUND_RESULTS + DICE_ROLLING / DICE_RESULT
+    end
+
+    GC-->>GC: checkWinner (1 player alive)
+    S->>GC: TriggerPayout
+    GC->>EC: ReleaseFunds{winner}
+    EC->>P: 98% of pot → winner
+```
+
 ## Stack
 
 - **Frontend:** Next.js · Tailwind CSS · Dynamic.xyz auth · TON Connect
