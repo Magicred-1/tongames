@@ -1,7 +1,6 @@
 "use client";
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useDynamicContext, useTelegramLogin } from '@dynamic-labs/sdk-react-core';
 import { useCallback, useState } from 'react';
@@ -116,11 +115,10 @@ export default function Header() {
           {user ? (
             <span className="flex items-center gap-2 max-w-[140px] sm:max-w-[220px]">
               {avatarUrl ? (
-                <Image
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
                   src={avatarUrl}
                   alt="User avatar"
-                  width={22}
-                  height={22}
                   className="w-[22px] h-[22px] rounded-full object-cover border border-white/40"
                 />
               ) : (
